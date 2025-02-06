@@ -36,8 +36,8 @@ pub fn randomMoves(rng: anytype, random_moves: anytype) Board {
     }
   }
 
-  var last = Board.invalid;
-  var board = Board.initial;
+  var last = invalid;
+  var board = initial;
 
   for (0..random_moves) |_| {
     const moves = board.getMoves(last);

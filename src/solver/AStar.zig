@@ -57,7 +57,7 @@ fn init(self: *AStar) void {
 
 fn insert(self: *AStar, board: Board, parent: Board, g_cost: Cost) bool {
   const hash_idx, var heap_idx = blk: {
-    var h = AStar.hash(board);
+    var h = hash(board);
     var idx = self.hash_table[h];
 
     while (idx != HASH_INVALID) {
@@ -169,7 +169,9 @@ pub fn increaseHeuristic(self: *AStar, idx: HeapIndex, new_h_cost: Cost) void {
 // memory is exhausted
 pub fn trySolve(self: *AStar, board: Board) bool {
   self.init();
-  _ = self.insert(board, Board.invalid, 0);
+  if (!self.insert(board, Board.invalid, 0)) {
+    unreachable;
+  }
 
   while (!self.heap[0].board.solved()) {
     const current = self.heap[0];
@@ -204,16 +206,13 @@ pub fn reconstruct(self: *AStar, pos: HeapIndex) *Solution {
 
     const p = self.heap[heap_idx].parent;
 
-    var h = AStar.hash(p);
+    var h = hash(p);
     heap_idx = self.hash_table[h];
 
-    if (heap_idx == HASH_INVALID) unreachable;
     while (self.heap[heap_idx].board.data != p.data) {
       h +%= 1;
       heap_idx = self.hash_table[h];
-      if (heap_idx == HASH_INVALID) unreachable;
     }
-
   }
 
   return &self.solution;
