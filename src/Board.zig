@@ -1,6 +1,7 @@
-const StaticList = @import("static_list.zig").StaticList;
+const common = @import("common.zig");
 
 pub const Cost = u8;
+pub const MAX_COST = -% @as(Cost, 1);
 
 // Bitboard representation of the sliding puzzle
 const Board = @This();
@@ -14,9 +15,7 @@ pub const initial: Board = .{ .data = 0x0FEDCBA987654321 };
 // Any board that can't be reached from the initial state works.
 pub const invalid: Board = .{ .data = 0 };
 
-pub const MoveList = StaticList(Board, 4);
-
-pub const heuristic = manhattanCost;
+pub const MoveList = common.StaticList(Board, 4);
 
 pub fn solved(self: Board) bool {
   return self.data == initial.data;
@@ -81,13 +80,13 @@ pub fn randomUniform(rng: anytype) Board {
   // to solvable boards is applied.
   return .{
     .data = ((data & 0xffff000000000000) >> 48)
-    | ((data & 0x0000ffff00000000) >> 16)
-    | ((data & 0x00000000ffff0000) << 16)
-    | ((data & 0x000000000000ffff) << 48)
+          | ((data & 0x0000ffff00000000) >> 16)
+          | ((data & 0x00000000ffff0000) << 16)
+          | ((data & 0x000000000000ffff) << 48)
   };
 }
 
-fn emptyPos(self: Board) u6 {
+pub fn emptyPos(self: Board) u6 {
   var b = self.data;
   b |= (b >> 2) & 0x3333333333333333;
   b |= (b >> 1);
@@ -96,7 +95,7 @@ fn emptyPos(self: Board) u6 {
 
 // Fast 4x4x4 bitboard transposition that I stole somewhere 6 years ago. If I
 // ever find the source again I'll put it here.
-fn transpose(self: Board) Board {
+pub fn transpose(self: Board) Board {
   var x = self.data;
   var b = (x ^ (x >> 12)) & 0x0000f0f00000f0f0;
   x ^= b ^ (b << 12);
@@ -105,39 +104,29 @@ fn transpose(self: Board) Board {
   return .{ .data = x };
 }
 
+fn inversions(self: Board) u32 {
+  var b = self.data;
+  var inv: u32 = 0;
+
+  inline for (0..15) |idx| {
+    const tile = b & 0xf;
+    b >>= 4;
+
+    var t = b;
+    inline for (idx + 1..16) |_| {
+      const other = t & 0xf;
+      if (tile != 0 and other != 0 and tile > other) inv += 1;
+      t >>= 4;
+    }
+  }
+
+  return inv;
+}
+
 // Check if a puzzle configuration is solvable using permutation parity.
 // TODO: Speed up the computation and use it as a heuristic
 pub fn solvable(self: Board) bool {
-  // Convert the bitboard back to an array
-  const tiles = blk: {
-    var tiles: [16]u4 = undefined;
-
-    var b = self.data;
-    for (&tiles) |*tile| {
-      tile.* = @truncate(b);
-      b >>= 4;
-    }
-
-    break :blk tiles;
-  };
-
-  // Count the number of inversions of non-empty tiles
-  const inv = blk: {
-    var inv: u32 = 0;
-
-    inline for (tiles[0..15], 0..) |tile, idx| {
-      inline for (tiles[idx + 1 ..]) |other| {
-        if (tile != 0 and other != 0 and tile > other) {
-          inv += 1;
-        }
-      }
-    }
-
-    break :blk inv;
-  };
-
-  const empty_row = self.emptyPos() >> 4;
-  return (inv + empty_row) & 1 == 1;
+  return (self.inversions() + (self.emptyPos() >> 4)) & 1 == 1;
 }
 
 // Move generation using bitwise operations. The main idea is to use XOR to
@@ -156,9 +145,7 @@ pub fn getMoves(self: Board, last: Board) MoveList {
     const mask = (board >> pos) & 0xf;
     const up = board ^ (((mask << 16) | mask) << empty);
 
-    if (up != last.data) {
-      moves.push(.{ .data = up });
-    }
+    if (up != last.data) moves.push(.{ .data = up });
   }
 
   if (empty_row > 0) {
@@ -166,9 +153,7 @@ pub fn getMoves(self: Board, last: Board) MoveList {
     const mask = (board >> pos) & 0xf;
     const down = board ^ (((mask << 16) | mask) << pos);
 
-    if (down != last.data) {
-      moves.push(.{ .data = down });
-    }
+    if (down != last.data) moves.push(.{ .data = down });
   }
 
   if (empty_col < 12) {
@@ -176,9 +161,7 @@ pub fn getMoves(self: Board, last: Board) MoveList {
     const mask = (board >> pos) & 0xf;
     const left = board ^ (((mask << 4) | mask) << empty);
 
-    if (left != last.data) {
-      moves.push(.{ .data = left });
-    }
+    if (left != last.data) moves.push(.{ .data = left });
   }
 
   if (empty_col > 0) {
@@ -186,48 +169,48 @@ pub fn getMoves(self: Board, last: Board) MoveList {
     const mask = (board >> pos) & 0xf;
     const right = board ^ (((mask << 4) | mask) << pos);
 
-    if (right != last.data) {
-      moves.push(.{ .data = right });
-    }
+    if (right != last.data) moves.push(.{ .data = right });
   }
 
   return moves;
 }
 
 // A commonly used admissible heuristic for solving the puzzle with A*
-fn manhattanCost(self: Board) Cost {
-  // Precompute the manhattan distance for every tile on every position
-  const cost_table = comptime blk: {
-    var cost_table: [16][16]Cost = undefined;
+pub const ManhattanHeuristic = struct {
+  pub fn evaluate(self: Board) Cost {
+    // Precompute the manhattan distance for every tile on every position
+    const cost_table = comptime blk: {
+      var cost_table: [16][16]Cost = undefined;
 
-    var goal_pos: [15]@Vector(2, i8) = undefined;
-    for (&goal_pos, 0..) |*pos, idx| {
-      pos.*= .{ idx / 4, idx % 4 };
-    }
-
-    for (&cost_table, 0..) |*cost, cost_idx| {
-      // Counting the empty tile will cause overestimation
-      cost[0] = 0;
-
-      const pos: @Vector(2, i8) = .{ cost_idx / 4, cost_idx % 4 };
-      for (cost[1..], 0..) |*tile, tile_idx| {
-        const x, const y = @abs(pos - goal_pos[tile_idx]);
-        tile.* = x + y;
+      var goal_pos: [15]@Vector(2, i8) = undefined;
+      for (&goal_pos, 0..) |*pos, idx| {
+        pos.*= .{ idx / 4, idx % 4 };
       }
+
+      for (&cost_table, 0..) |*cost, cost_idx| {
+        // Counting the empty tile will cause overestimation
+        cost[0] = 0;
+
+        const pos: @Vector(2, i8) = .{ cost_idx / 4, cost_idx % 4 };
+        for (cost[1..], 0..) |*tile, tile_idx| {
+          const x, const y = @abs(pos - goal_pos[tile_idx]);
+          tile.* = x + y;
+        }
+      }
+
+      break :blk cost_table;
+    };
+
+    var result: Cost = 0;
+    var b = self.data;
+    inline for (cost_table) |cost| {
+      result += cost[b & 0xf];
+      b >>= 4;
     }
 
-    break :blk cost_table;
-  };
-
-  var result: Cost = 0;
-  var b = self.data;
-  inline for (cost_table) |cost| {
-    result += cost[b & 0xf];
-    b >>= 4;
+    return result;
   }
-
-  return result;
-}
+};
 
 // Pretty-print the board for debug and demonstration purposes
 pub fn display(self: Board, writer: anytype) !void {
@@ -262,4 +245,10 @@ pub fn display(self: Board, writer: anytype) !void {
 
     try writer.writeAll("|\n+----+----+----+----+\n");
   }
+}
+
+pub fn hash(self: Board, bits: comptime_int) common.Uint(bits) {
+  // MCG multiplier from: <https://arxiv.org/pdf/2001.05304>
+  const h = self.data *% 0xf1357aea2e62a9c5;
+  return @intCast(h >> (64 - bits));
 }

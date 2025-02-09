@@ -1,40 +1,59 @@
 const std = @import("std");
 
-pub fn build(b: *std.Build) void {
-  const target = b.standardTargetOptions(.{});
+const BuildOptions = struct {
+  target: std.Build.ResolvedTarget,
+  optimize: std.builtin.OptimizeMode,
+  strip: bool,
 
-  const optimize = b.standardOptimizeOption(.{});
+  fn default(b: *std.Build) BuildOptions {
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
+    return .{
+      .target = target,
+      .optimize = optimize,
+      .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
+    };
+  }
+};
 
-  const exe = b.addExecutable(.{
+fn buildCli(b: *std.Build, opt: BuildOptions) void {
+  const cli = b.addExecutable(.{
     .name = "main",
     .root_source_file = b.path("src/main.zig"),
-    .target = target,
-    .optimize = optimize,
+    .target = opt.target,
+    .optimize = opt.optimize,
     .single_threaded = true,
-    .strip = true,
+    .strip = opt.strip,
   });
 
-  b.installArtifact(exe);
+  b.installArtifact(cli);
+  const cli_step = b.step("cli", "Build the CLI application");
+  cli_step.dependOn(&cli.step);
+  
+  const cli_cmd = b.addRunArtifact(cli);
+  if (b.args) |args| cli_cmd.addArgs(args);
+  const cli_run = b.step("run-cli", "Run the CLI application");
+  cli_run.dependOn(&cli_cmd.step);
+}
 
-  const run_cmd = b.addRunArtifact(exe);
-
-  run_cmd.step.dependOn(b.getInstallStep());
-
-  if (b.args) |args| {
-    run_cmd.addArgs(args);
-  }
-
-  const run_step = b.step("run", "Run the app");
-  run_step.dependOn(&run_cmd.step);
-
-  const exe_unit_tests = b.addTest(.{
-    .root_source_file = b.path("src/main.zig"),
-    .target = target,
-    .optimize = optimize,
+fn generatePattern(b: *std.Build, opt: BuildOptions) void {
+  const generator = b.addExecutable(.{
+    .name = "pattern-generator",
+    .root_source_file = b.path("src/pattern-generator.zig"),
+    .target = opt.target,
+    .optimize = opt.optimize,
+    .single_threaded = true,
+    .strip = opt.strip,
   });
 
-  const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
+  b.installArtifact(generator);
+  const generate_cmd = b.addRunArtifact(generator);
+  const generate = b.step("generate-pattern", "Generate the pattern database");
+  generate.dependOn(&generate_cmd.step);
+}
 
-  const test_step = b.step("test", "Run unit tests");
-  test_step.dependOn(&run_exe_unit_tests.step);
+pub fn build(b: *std.Build) void {
+  const opt = BuildOptions.default(b);
+  generatePattern(b, opt);
+  buildCli(b, opt);
 }

@@ -1,6 +1,7 @@
 const Board = @import("../Board.zig");
 const solver = @import("../solver.zig");
-const StaticList = @import("../static_list.zig").StaticList;
+const common = @import("../common.zig");
+const PatternDatabase = @import("../PatternDatabase.zig");
 
 const Cost = Board.Cost;
 const Solution = solver.Solution;
@@ -11,11 +12,11 @@ const IDAStar = @This();
 
 const NOT_SOLVED: Solution = .{ .len = MAX_SOLUTION_LEN + 1};
 
-const MAX_COST = -% @as(Cost, 1);
+const MAX_COST = Board.MAX_COST;
 
 min_cost: Cost,
 solution: Solution,
-stack: StaticList(Board.MoveList, MAX_SOLUTION_LEN + 1),
+stack: common.StaticList(Board.MoveList, MAX_SOLUTION_LEN + 1),
 
 pub fn init(self: *IDAStar, h_cost: Cost) void {
   self.min_cost = h_cost;
@@ -23,7 +24,7 @@ pub fn init(self: *IDAStar, h_cost: Cost) void {
 }
 
 // Performs one iteration of IDA* and updates the minimum cost
-pub fn iterate(self: *IDAStar, board: Board, parent: Board) ?*Solution {
+pub fn iterate(self: *IDAStar, board: Board, parent: Board, heuristic: anytype) ?*Solution {
   self.stack.len = 2;
 
   // The board is always in front of the stack to avoid going backward
@@ -40,7 +41,7 @@ pub fn iterate(self: *IDAStar, board: Board, parent: Board) ?*Solution {
     // Popping from the array sets `arr.buf[arr.len]` to the popped element,
     // so I used that to keep track of the currently evaluating path
     if (top.pop()) |next_board| {
-    {
+      {
         if (next_board.solved() and (self.solution.len > self.stack.len - 1)) {
           self.solution.len = self.stack.len - 1;
 
@@ -52,7 +53,7 @@ pub fn iterate(self: *IDAStar, board: Board, parent: Board) ?*Solution {
         }
       }
 
-      const f_cost = self.stack.len - 1 + next_board.heuristic();
+      const f_cost = self.stack.len - 1 + heuristic.evaluate(next_board);
       if (f_cost <= self.min_cost) {
         // Append to the stack, avoid moving to the previous configuration
         const prev = self.stack.buf[self.stack.len - 2];
@@ -67,21 +68,17 @@ pub fn iterate(self: *IDAStar, board: Board, parent: Board) ?*Solution {
 
   self.min_cost = next_min_cost;
 
-  if (self.solution.len != NOT_SOLVED.len) {
-    return &self.solution;
-  }
+  if (self.solution.len != NOT_SOLVED.len) return &self.solution;
 
   return null;
 }
 
-pub fn solve(self: *IDAStar, board: Board) *const Solution {
-  if (!board.solvable() or board.solved()) {
-    return &.{};
-  }
+pub fn solve(self: *IDAStar, board: Board, heuristic: anytype) *const Solution {
+  if (!board.solvable() or board.solved()) return &.{};
 
-  self.init(board.heuristic());
+  self.init(board.manhattanCost);
 
   while (true) {
-    return self.iterate(board, Board.invalid) orelse continue;
+    return self.iterate(board, Board.invalid, heuristic) orelse continue;
   }
 }

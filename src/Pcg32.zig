@@ -4,6 +4,7 @@ const Pcg32 = @This();
 // Copied and modified from: https://www.pcg-random.org/download.html
 state: u64,
 
+// Multiplier and increment from MMIX by Donald Knuth
 const MUL = 0x5851f42d4c957f2d;
 const INC = 0x14057b7ef767814f;
 
@@ -31,8 +32,6 @@ pub fn bounded(self: *Pcg32, range: u32) u32 {
     const m = @as(u64, x) * @as(u64, range);
     const l: u32 = @truncate(m);
 
-    if (l >= t) {
-      return @intCast(m >> 32);
-    }
+    if (l >= t) return @intCast(m >> 32);
   }
 }

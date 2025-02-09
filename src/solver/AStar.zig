@@ -1,3 +1,4 @@
+const common = @import("../common.zig");
 const Board = @import("../Board.zig");
 const Solution = @import("../solver.zig").Solution;
 
@@ -6,7 +7,7 @@ const Cost = Board.Cost;
 // A dynamic-programming A* based partial solver
 pub const AStar = @This();
 
-const HEAP_BITS = 24;
+const HEAP_BITS = 22;
 const HASH_BITS = HEAP_BITS + 1; // 50% load factor
 
 const HEAP_SIZE = 1 << HEAP_BITS;
@@ -16,12 +17,7 @@ const HASH_INVALID = -% @as(HeapIndex, 1);
 
 const HeapIndex = u32;
 
-const HashIndex = @Type(.{
-  .Int = .{
-    .signedness = .unsigned,
-    .bits = HASH_BITS,
-  }
-});
+const HashIndex = common.Uint(HASH_BITS);
 
 const HeapItem = struct {
   hash_idx: HashIndex,
@@ -39,11 +35,6 @@ closed_idx: HeapIndex,
 
 solution: Solution,
 
-fn hash(board: Board) HashIndex {
-  const h = board.data *% 12605985483714917081;
-  return @intCast(h >> (64 - HASH_BITS));
-}
-
 fn moveItem(self: *AStar, from: HeapIndex, to: HeapIndex) void {
   self.hash_table[self.heap[from].hash_idx] = to;
   self.heap[to] = self.heap[from];
@@ -52,12 +43,13 @@ fn moveItem(self: *AStar, from: HeapIndex, to: HeapIndex) void {
 fn init(self: *AStar) void {
   self.len = 0;
   self.closed_idx = HEAP_SIZE;
+
   @memset(&self.hash_table, HASH_INVALID);
 }
 
-fn insert(self: *AStar, board: Board, parent: Board, g_cost: Cost) bool {
+fn insert(self: *AStar, board: Board, parent: Board, g_cost: Cost, heuristic: anytype) bool {
   const hash_idx, var heap_idx = blk: {
-    var h = hash(board);
+    var h = board.hash(HASH_BITS);
     var idx = self.hash_table[h];
 
     while (idx != HASH_INVALID) {
@@ -85,7 +77,6 @@ fn insert(self: *AStar, board: Board, parent: Board, g_cost: Cost) bool {
 
       // Linear probing collision resolution
       // No mmodulo or masking required thanks to Zig's arbitrary integer
-      // TODO: Investigate quadratic probing and double hashing
       h +%= 1;
       idx = self.hash_table[h];
     }
@@ -97,7 +88,8 @@ fn insert(self: *AStar, board: Board, parent: Board, g_cost: Cost) bool {
     break :blk .{ h, heap_idx };
   };
 
-  const f_cost = g_cost + board.heuristic();
+  const h_cost = heuristic.evaluate(board);
+  const f_cost = g_cost + h_cost;
 
   var p_idx = (heap_idx -% 1) >> 1;
   while (heap_idx > 0 and self.heap[p_idx].f_cost > f_cost) {
@@ -132,9 +124,7 @@ fn siftDown(self: *AStar, pos: HeapIndex, f_cost: Cost) HeapIndex {
       }
     }
 
-    if (f_cost < child_f_cost) {
-      break;
-    }
+    if (f_cost < child_f_cost) break;
 
     self.moveItem(child_idx, idx);
     idx = child_idx;
@@ -167,11 +157,10 @@ pub fn increaseHeuristic(self: *AStar, idx: HeapIndex, new_h_cost: Cost) void {
 
 // Try to solve a puzzle configuration until either a solution is found or
 // memory is exhausted
-pub fn trySolve(self: *AStar, board: Board) bool {
+pub fn trySolve(self: *AStar, board: Board, heuristic: anytype) bool {
   self.init();
-  if (!self.insert(board, Board.invalid, 0)) {
-    unreachable;
-  }
+
+  if (!self.insert(board, Board.invalid, 0, heuristic)) unreachable;
 
   while (!self.heap[0].board.solved()) {
     const current = self.heap[0];
@@ -181,13 +170,11 @@ pub fn trySolve(self: *AStar, board: Board) bool {
 
     // This doesn't accurately determine if space is still available but it's
     // faster than trying to insert and undo when OOM
-    if (remaining == 0 or remaining < moves.len) {
-      return false;
-    }
+    if (remaining == 0 or remaining < moves.len) return false;
 
     self.moveTopToClosed();
     for (moves.view()) |neighbor| {
-      _ = self.insert(neighbor, current.board, current.g_cost + 1);
+      _ = self.insert(neighbor, current.board, current.g_cost + 1, heuristic);
     }
   }
 
@@ -206,7 +193,7 @@ pub fn reconstruct(self: *AStar, pos: HeapIndex) *Solution {
 
     const p = self.heap[heap_idx].parent;
 
-    var h = hash(p);
+    var h = p.hash(HASH_BITS);
     heap_idx = self.hash_table[h];
 
     while (self.heap[heap_idx].board.data != p.data) {

@@ -1,3 +1,19 @@
+pub fn Uint(BITS: comptime_int) type {
+  return @Type(.{
+    .Int = .{
+      .signedness = .unsigned,
+      .bits = BITS,
+    }
+  });
+}
+
+pub fn UintFit(MAX: comptime_int) type {
+  var shift: comptime_int = 0;
+  while (1 << shift < (MAX + 1)) shift += 1;
+
+  return Uint(shift);
+}
+
 // Static-array backed lists, they are used extensively in this project because
 // everything has a strong upper bound and performance is critical
 pub fn StaticList(T: type, capacity: comptime_int) type {
@@ -6,21 +22,7 @@ pub fn StaticList(T: type, capacity: comptime_int) type {
 
     // The type of the length of the list is dynamically computed to fit the
     // range from 0 to capacity - 1
-    len: @Type(.{
-      .Int = .{
-        .signedness = .unsigned, 
-        .bits = blk: {
-          var shift: comptime_int = 0;
-          var tmp: comptime_int = capacity;
-          while (tmp > 0) {
-            tmp >>= 1;
-            shift += 1;
-          }
-
-          break :blk shift;
-        },
-      }
-    }) = 0,
+    len: UintFit(capacity) = 0,
 
     pub fn view(self: *const @This()) []const T {
       return self.buf[0..self.len];
@@ -49,4 +51,3 @@ pub fn StaticList(T: type, capacity: comptime_int) type {
     }
   };
 }
-

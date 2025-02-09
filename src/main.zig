@@ -5,6 +5,8 @@ const Board = @import("Board.zig");
 
 const Solver = @import("solver.zig").HybridSolver;
 
+const Heuristic = Board.ManhattanHeuristic;
+
 const Cost = Board.Cost;
 const MAX_COST = Board.MAX_COST;
 
@@ -19,21 +21,21 @@ pub fn main() !void {
   
   var rng = Pcg32.withSeed(1337);
 
-  for (0..3) |_| {
+  for (0..20) |_| {
     const board = Board.randomUniform(&rng);
-    try board.display(&writer);
-    try buffer.flush();
+    board.display(&writer) catch return;
+    buffer.flush() catch return;
 
     var timer = try std.time.Timer.start();
-    const solution = solver.solve(board);
+    const solution = solver.solve(board, Heuristic);
     const elapsed: f64 = @floatFromInt(timer.read());
 
-    try writer.print("Solution length: {} - Time elapsed: {d}\n", .{
+    writer.print("Solution length: {} - Time elapsed: {d}\n", .{
       solution.len,
       elapsed / std.time.ns_per_s,
-    });
-    try buffer.flush();
+    }) catch return;
+    buffer.flush() catch return;
   }
   
-  try buffer.flush();
+  buffer.flush() catch return;
 }
