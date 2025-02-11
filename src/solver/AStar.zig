@@ -7,7 +7,7 @@ const Cost = Board.Cost;
 // A dynamic-programming A* based partial solver
 pub const AStar = @This();
 
-const HEAP_BITS = 22;
+const HEAP_BITS = 18;
 const HASH_BITS = HEAP_BITS + 1; // 50% load factor
 
 const HEAP_SIZE = 1 << HEAP_BITS;

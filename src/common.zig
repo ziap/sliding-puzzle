@@ -9,7 +9,7 @@ pub fn Uint(BITS: comptime_int) type {
 
 pub fn UintFit(MAX: comptime_int) type {
   var shift: comptime_int = 0;
-  while (1 << shift < (MAX + 1)) shift += 1;
+  while (1 << shift < MAX) shift += 1;
 
   return Uint(shift);
 }
@@ -21,8 +21,8 @@ pub fn StaticList(T: type, capacity: comptime_int) type {
     buf: [capacity]T = undefined,
 
     // The type of the length of the list is dynamically computed to fit the
-    // range from 0 to capacity - 1
-    len: UintFit(capacity) = 0,
+    // range from 0 to capacity
+    len: UintFit(capacity + 1) = 0,
 
     pub fn view(self: *const @This()) []const T {
       return self.buf[0..self.len];

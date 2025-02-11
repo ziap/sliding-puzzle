@@ -1,7 +1,6 @@
 const Board = @import("../Board.zig");
 const solver = @import("../solver.zig");
 const common = @import("../common.zig");
-const PatternDatabase = @import("../PatternDatabase.zig");
 
 const Cost = Board.Cost;
 const Solution = solver.Solution;
@@ -76,7 +75,7 @@ pub fn iterate(self: *IDAStar, board: Board, parent: Board, heuristic: anytype) 
 pub fn solve(self: *IDAStar, board: Board, heuristic: anytype) *const Solution {
   if (!board.solvable() or board.solved()) return &.{};
 
-  self.init(board.manhattanCost);
+  self.init(heuristic.evaluate(board));
 
   while (true) {
     return self.iterate(board, Board.invalid, heuristic) orelse continue;

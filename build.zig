@@ -38,8 +38,8 @@ fn buildCli(b: *std.Build, opt: BuildOptions) void {
 
 fn generatePattern(b: *std.Build, opt: BuildOptions) void {
   const generator = b.addExecutable(.{
-    .name = "pattern-generator",
-    .root_source_file = b.path("src/pattern-generator.zig"),
+    .name = "pdb-gen",
+    .root_source_file = b.path("src/pdb-gen.zig"),
     .target = opt.target,
     .optimize = opt.optimize,
     .single_threaded = true,
@@ -48,7 +48,7 @@ fn generatePattern(b: *std.Build, opt: BuildOptions) void {
 
   b.installArtifact(generator);
   const generate_cmd = b.addRunArtifact(generator);
-  const generate = b.step("generate-pattern", "Generate the pattern database");
+  const generate = b.step("pdb-gen", "Generate the pattern database");
   generate.dependOn(&generate_cmd.step);
 }
 
