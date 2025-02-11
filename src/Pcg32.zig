@@ -1,7 +1,7 @@
 const Pcg32 = @This();
 
 // Fixed-increment version of PCG-32-XSH-RR
-// Copied and modified from: https://www.pcg-random.org/download.html
+// Copied and modified from: <https://www.pcg-random.org/download.html>
 state: u64,
 
 // Multiplier and increment from MMIX by Donald Knuth
@@ -23,7 +23,7 @@ pub fn next(self: *Pcg32) u32 {
 }
 
 // Unbiased random integer generation in a range, Lemire's method
-// Paper: https://arxiv.org/pdf/1805.10941.pdf
+// Paper: <https://arxiv.org/pdf/1805.10941.pdf>
 pub fn bounded(self: *Pcg32, range: u32) u32 {
   const t = (-% range) % range;
 

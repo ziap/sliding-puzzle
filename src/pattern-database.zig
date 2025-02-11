@@ -7,7 +7,7 @@ fn Pattern(pattern: []const u4) type {
   return struct {
     comptime {
       if (@popCount(BITMAP) != pattern.len) {
-        @compileError("Pattern contains duplicate tile(s)");
+        @compileError("Pattern contains duplicate tiles");
       }
     }
 
