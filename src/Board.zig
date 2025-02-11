@@ -179,31 +179,33 @@ pub fn getMoves(self: Board, last: Board) MoveList {
 pub const ManhattanHeuristic = struct {
   pub fn evaluate(self: Board) Cost {
     // Precompute the manhattan distance for every tile on every position
-    const cost_table = comptime blk: {
-      var cost_table: [16][16]Cost = undefined;
+    const S = struct {
+      const cost_table = blk: {
+        var res: [16][16]Cost = undefined;
 
-      var goal_pos: [15]@Vector(2, i8) = undefined;
-      for (&goal_pos, 0..) |*pos, idx| {
-        pos.*= .{ idx / 4, idx % 4 };
-      }
-
-      for (&cost_table, 0..) |*cost, cost_idx| {
-        // Counting the empty tile will cause overestimation
-        cost[0] = 0;
-
-        const pos: @Vector(2, i8) = .{ cost_idx / 4, cost_idx % 4 };
-        for (cost[1..], 0..) |*tile, tile_idx| {
-          const x, const y = @abs(pos - goal_pos[tile_idx]);
-          tile.* = x + y;
+        var goal_pos: [15]@Vector(2, i8) = undefined;
+        for (&goal_pos, 0..) |*pos, idx| {
+          pos.*= .{ idx / 4, idx % 4 };
         }
-      }
 
-      break :blk cost_table;
+        for (&res, 0..) |*cost, cost_idx| {
+          // Counting the empty tile will cause overestimation
+          cost[0] = 0;
+
+          const pos: @Vector(2, i8) = .{ cost_idx / 4, cost_idx % 4 };
+          for (cost[1..], 0..) |*tile, tile_idx| {
+            const x, const y = @abs(pos - goal_pos[tile_idx]);
+            tile.* = x + y;
+          }
+        }
+
+        break :blk res;
+      };
     };
 
     var result: Cost = 0;
     var b = self.data;
-    inline for (cost_table) |cost| {
+    inline for (S.cost_table) |cost| {
       result += cost[b & 0xf];
       b >>= 4;
     }

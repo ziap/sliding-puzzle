@@ -30,6 +30,41 @@ fn Pattern(pattern: []const u4) type {
     const DBIndex = u32;
     const PatternType = @This();
 
+    fn index(board: Board) DBIndex {
+      const S = struct {
+        const pos_map = blk: {
+          var res: [16]u4 = .{pattern.len} ** 16;
+
+          for (pattern, 0..) |tile, idx| res[tile] = idx;
+
+          break :blk res;
+        };
+      };
+
+      const shifts = blk: {
+        var shifts: [pattern.len + 1]u16 = undefined;
+
+        var b = board.data;
+        inline for (0..16) |pos| {
+          shifts[S.pos_map[b & 0xf]] = @as(u16, 1) << pos;
+          b >>= 4;
+        }
+
+        break :blk shifts;
+      };
+
+      var idx: DBIndex = 0;
+      var remaining_count: u5 = 16;
+      var remaining: u16 = 0xffff;
+      inline for (shifts[0..pattern.len]) |shift| {
+        idx = idx * remaining_count + @popCount(remaining & (shift - 1));
+        remaining ^= shift;
+        remaining_count -= 1;
+      }
+
+      return idx;
+    }
+
     fn search(database: []Cost, allocator: anytype) !void {
       @memset(database, MAX_COST);
 
@@ -92,34 +127,6 @@ fn Pattern(pattern: []const u4) type {
       }
     }
 
-    fn index(board: Board) DBIndex {
-      const shifts = blk: {
-        var shifts: [pattern.len]u16 = undefined;
-        
-        var b = board.data;
-        inline for (0..16) |pos| {
-          const tile: u4 = @truncate(b);
-          const shifted = @as(u16, 1) << tile;
-          if (BITMAP & shifted != 0) {
-            shifts[@popCount(BITMAP & (shifted - 1))] = @as(u16, 1) << pos;
-          }
-          b >>= 4;
-        }
-
-        break :blk shifts;
-      };
-
-      var idx: DBIndex = 0;
-      var remaining_count: u5 = 16;
-      var remaining: u16 = 0xffff;
-      inline for (shifts) |shift| {
-        idx = idx * remaining_count + @popCount(remaining & (shift - 1));
-        remaining ^= shift;
-        remaining_count -= 1;
-      }
-
-      return idx;
-    }
   };
 }
 
