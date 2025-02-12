@@ -76,9 +76,8 @@ fn Pattern(pattern: []const u4) type {
 
       var frontier = try allocator.alloc(Board, QUEUE_SIZE);
       defer allocator.free(frontier);
-
-      var next_frontier = try allocator.create(common.StaticList(Board, SIZE));
-      defer allocator.destroy(next_frontier);
+      var next_frontier = try allocator.alloc(Board, QUEUE_SIZE);
+      defer allocator.free(next_frontier);
 
       var depth: Cost = 0;
       var frontier_start: QueueIndex = 0;
@@ -86,10 +85,14 @@ fn Pattern(pattern: []const u4) type {
       frontier[0] = Board.initial;
       database[index(Board.initial)] = 0;
 
+      var next_frontier_len: QueueIndex = 0;
+
       while (frontier_end != frontier_start) {
         while (frontier_end != frontier_start) {
           const board = frontier[frontier_start];
           frontier_start +%= 1;
+
+          if (database[index(board)] < depth) continue;
 
           const moves = board.getMoves(Board.invalid);
           for (moves.view()) |next| {
@@ -100,7 +103,8 @@ fn Pattern(pattern: []const u4) type {
             if (BITMAP & (@as(u16, 1) << moved_tile) != 0) {
               if (database[idx] > depth + 1) {
                 database[idx] = depth + 1;
-                next_frontier.push(next);
+                next_frontier[next_frontier_len] = next;
+                next_frontier_len += 1;
               }
             } else {
               if (database[idx] > depth) {
@@ -113,14 +117,13 @@ fn Pattern(pattern: []const u4) type {
         }
 
         depth += 1;
-        for (next_frontier.view()) |next| {
-          if (database[index(next)] == depth) {
-            frontier[frontier_end] = next;
-            frontier_end +%= 1;
-          }
-        }
+        frontier_start = 0;
+        frontier_end = next_frontier_len;
+        next_frontier_len = 0;
 
-        next_frontier.len = 0;
+        const tmp = frontier;
+        frontier = next_frontier;
+        next_frontier = tmp;
       }
     }
   };
@@ -250,4 +253,4 @@ pub const PatternDatabase654 = PDBHeuristic(&.{
 });
 
 // TODO: Use the build system to dynamically select pattern database
-pub const Default = PatternDatabase663;
+pub const Default = PatternDatabase555;
