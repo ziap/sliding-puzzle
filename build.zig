@@ -46,7 +46,6 @@ fn generatePattern(b: *std.Build, opt: BuildOptions) void {
     .strip = opt.strip,
   });
 
-  b.installArtifact(generator);
   const generate_cmd = b.addRunArtifact(generator);
   const generate = b.step("pdb-gen", "Generate the pattern database");
   generate.dependOn(&generate_cmd.step);

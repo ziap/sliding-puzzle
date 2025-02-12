@@ -2,3 +2,4 @@ zig-out
 .zig-cache
 
 patterns.gz
+src/patterns.chk

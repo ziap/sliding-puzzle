@@ -1,5 +1,8 @@
 const Board = @import("Board.zig");
 const common = @import("common.zig");
+
+const native_endian = @import("builtin").cpu.arch.endian();
+
 const Cost = Board.Cost;
 const MAX_COST = Board.MAX_COST;
 
@@ -68,65 +71,58 @@ fn Pattern(pattern: []const u4) type {
     fn search(database: []Cost, allocator: anytype) !void {
       @memset(database, MAX_COST);
 
-      const buf = try allocator.alloc(common.StaticList(Board, SIZE), 3);
-      defer allocator.free(buf);
+      const QueueIndex = common.UintFit(SIZE + 1);
+      const QUEUE_SIZE = @as(comptime_int, (-% @as(QueueIndex, 1))) + 1;
 
-      var frontier = &buf[0];
-      var next_frontier_moved = &buf[1];
-      var next_frontier = &buf[2];
+      var frontier = try allocator.alloc(Board, QUEUE_SIZE);
+      defer allocator.free(frontier);
+
+      var next_frontier = try allocator.create(common.StaticList(Board, SIZE));
+      defer allocator.destroy(next_frontier);
 
       var depth: Cost = 0;
-      frontier.len = 0;
-      {
-        const board = Board.initial;
-        const idx = index(board);
-        database[idx] = 0;
-        frontier.push(board);
-      }
+      var frontier_start: QueueIndex = 0;
+      var frontier_end: QueueIndex = 1;
+      frontier[0] = Board.initial;
+      database[index(Board.initial)] = 0;
 
-      next_frontier.len = 0;
-      next_frontier_moved.len = 0;
+      while (frontier_end != frontier_start) {
+        while (frontier_end != frontier_start) {
+          const board = frontier[frontier_start];
+          frontier_start +%= 1;
 
-      while (frontier.len > 0) {
-        for (frontier.view()) |board| {
           const moves = board.getMoves(Board.invalid);
           for (moves.view()) |next| {
             const empty_pos = next.emptyPos();
-            if (database[index(next)] != MAX_COST) continue;
             const moved_tile: u4 = @truncate((board.data ^ next.data) >> empty_pos);
+            const idx = index(next);
 
             if (BITMAP & (@as(u16, 1) << moved_tile) != 0) {
-              next_frontier_moved.push(next);
+              if (database[idx] > depth + 1) {
+                database[idx] = depth + 1;
+                next_frontier.push(next);
+              }
             } else {
-              next_frontier.push(next);
+              if (database[idx] > depth) {
+                database[idx] = depth;
+                frontier[frontier_end] = next;
+                frontier_end +%= 1;
+              }
             }
           }
         }
 
-        frontier.len = 0;
-        if (next_frontier.len > 0) {
-          for (next_frontier.view()) |board| {
-            const idx = index(board);
-            if (database[idx] == MAX_COST) {
-              database[idx] = depth;
-              frontier.push(board);
-            }
+        depth += 1;
+        for (next_frontier.view()) |next| {
+          if (database[index(next)] == depth) {
+            frontier[frontier_end] = next;
+            frontier_end +%= 1;
           }
-          next_frontier.len = 0;
-        } else {
-          for (next_frontier_moved.view()) |board| {
-            const idx = index(board);
-            if (database[idx] == MAX_COST) {
-              database[idx] = depth;
-              frontier.push(board);
-            }
-          }
-          next_frontier_moved.len = 0;
-          depth += 1;
         }
+
+        next_frontier.len = 0;
       }
     }
-
   };
 }
 
@@ -150,7 +146,7 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       break :blk result;
     };
 
-    database: [TOTAL_SIZE]Cost,
+    database: [TOTAL_SIZE]Cost align(8),
 
     pub fn generate(self: *@This(), allocator: anytype) !void {
       const std = @import("std");
@@ -165,6 +161,39 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
         try PatternType.search(view, arena.allocator());
         view = view[PatternType.SIZE..];
       }
+    }
+
+    pub fn checksum(self: *const @This()) [8]u8 {
+      const mix = struct {
+        fn inner(v: u64) u64 {
+          const x = (v ^ (v >> 23)) *% 0x2127599bf4325c37;
+          return x ^ (x >> 47);
+        }
+      }.inner;
+
+      const m = 0x880355f21e6d1965;
+
+      if (TOTAL_SIZE % 8 != 0) @compileError("Size of pattern database not divisible by 8");
+      const chunks: *const [TOTAL_SIZE / 8]u64 = @ptrCast(&self.database);
+      var h: u64 = @truncate(TOTAL_SIZE * m);
+      for (chunks) |chunk| {
+        const v = if (native_endian == .little) chunk else @byteSwap(chunk);
+        h = (h ^ mix(v)) *% m;
+      }
+
+      h = mix(h);
+
+      const result = if (native_endian == .big) h else @byteSwap(h);
+      return @bitCast(result);
+    }
+
+    pub fn checkIntegrity(self: *const @This()) bool {
+      const correct: u64 = comptime blk_correct: {
+        const correct_file: *const [8]u8 = @embedFile("patterns.chk");
+        break :blk_correct @bitCast(correct_file.*);
+      };
+
+      return @as(u64, @bitCast(self.checksum())) == correct;
     }
 
     pub fn evaluate(self: *const @This(), board: Board) Cost {
@@ -221,4 +250,4 @@ pub const PatternDatabase654 = PDBHeuristic(&.{
 });
 
 // TODO: Use the build system to dynamically select pattern database
-pub const Default = PatternDatabase555;
+pub const Default = PatternDatabase663;
