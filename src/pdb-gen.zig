@@ -6,7 +6,7 @@ const Heuristic = @import("pattern-database.zig").Default;
 pub fn main() !void {
   const S = struct {
     var heuristic: Heuristic = undefined;
-    var buffer: [2 * Heuristic.MAX_QUEUE_SIZE]Board = undefined;
+    var buffer: Heuristic.ScratchBuffer = undefined;
   };
 
   var timer = try std.time.Timer.start();

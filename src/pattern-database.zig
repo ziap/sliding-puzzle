@@ -1,19 +1,21 @@
 const Board = @import("Board.zig");
 const common = @import("common.zig");
 
-const native_endian = @import("builtin").cpu.arch.endian();
-
 const Cost = Board.Cost;
 const MAX_COST = Board.MAX_COST;
 
+// A patch of a board that can be used to index into a database
 fn Pattern(pattern: []const u4) type {
   return struct {
     comptime {
-      if (@popCount(BITMAP) != pattern.len) {
+      if (@popCount(BITSET) != pattern.len) {
         @compileError("Pattern contains duplicate tiles");
       }
     }
 
+    // The size of the database is the number of arrangement of the tiles in
+    // the pattern, which is k-permutations of n, where k is the size of the
+    // pattern and n is the size of the board (16)
     const SIZE = blk: {
       var res = 1;
       for (17 - pattern.len..17) |idx| {
@@ -23,7 +25,9 @@ fn Pattern(pattern: []const u4) type {
       break :blk res;
     };
 
-    const BITMAP = blk: {
+    // The pattern in a bitset representation to quickly check if a tile is
+    // part in the pattern
+    const BITSET = blk: {
       var res: u16 = 0;
       for (pattern) |tile| res |= (1 << tile);
 
@@ -33,32 +37,35 @@ fn Pattern(pattern: []const u4) type {
     const DBIndex = u32;
     const PatternType = @This();
 
+    // Will be used for the construction of the pattern database
     const QueueIndex = common.UintFit(SIZE + 1);
     const QUEUE_SIZE = @as(comptime_int, (-% @as(QueueIndex, 1))) + 1;
 
+    // Extract the pattern from the board and returns an index
     fn index(board: Board) DBIndex {
-      const S = struct {
-        const pos_map = blk: {
+      const shifts = blk: {
+        const pos_map = comptime blk_pos_map: {
           var res: [16]u4 = .{pattern.len} ** 16;
 
           for (pattern, 0..) |tile, idx| res[tile] = idx;
 
-          break :blk res;
+          break :blk_pos_map res;
         };
-      };
 
-      const shifts = blk: {
         var shifts: [pattern.len + 1]u16 = undefined;
 
+        // Extracting the position of tiles in the pattern shift 1 by it to use
+        // in a bitset during the Lehmer code construction
         var b = board.data;
         inline for (0..16) |pos| {
-          shifts[S.pos_map[b & 0xf]] = @as(u16, 1) << pos;
+          shifts[pos_map[b & 0xf]] = @as(u16, 1) << pos;
           b >>= 4;
         }
 
         break :blk shifts;
       };
 
+      // Constructing a Lehmer code from the arrangement of the tiles
       var idx: DBIndex = 0;
       var remaining_count: u5 = 16;
       var remaining: u16 = 0xffff;
@@ -71,12 +78,14 @@ fn Pattern(pattern: []const u4) type {
       return idx;
     }
 
+    // Performs breadth-first search to fill up the pattern database
     fn search(database: []Cost, buffer: *[2 * QUEUE_SIZE]Board) void {
       @memset(database, MAX_COST);
 
       var frontier = buffer[0..QUEUE_SIZE];
       var next_frontier = buffer[QUEUE_SIZE..];
 
+      // Add the initial board to the database
       var depth: Cost = 0;
       var frontier_start: QueueIndex = 0;
       var frontier_end: QueueIndex = 1;
@@ -85,54 +94,63 @@ fn Pattern(pattern: []const u4) type {
 
       var next_frontier_len: QueueIndex = 0;
 
-      while (frontier_end != frontier_start) {
+      while (frontier_end != frontier_start) : (depth += 1) {
         while (frontier_end != frontier_start) {
+          // Remove a board from the frontier list
           const board = frontier[frontier_start];
           frontier_start +%= 1;
 
+          // The board is reached earlier, don't bother expanding its children
           if (database[index(board)] < depth) continue;
 
           const moves = board.getMoves(Board.invalid);
           for (moves.view()) |next| {
             const empty_pos = next.emptyPos();
-            const moved_tile: u4 = @truncate((board.data ^ next.data) >> empty_pos);
+            const moved: u4 = @truncate((board.data ^ next.data) >> empty_pos);
             const idx = index(next);
 
-            if (BITMAP & (@as(u16, 1) << moved_tile) != 0) {
-              if (database[idx] > depth + 1) {
-                database[idx] = depth + 1;
-                next_frontier[next_frontier_len] = next;
-                next_frontier_len += 1;
-              }
+            if (BITSET & (@as(u16, 1) << moved) != 0) {
+              // A pattern tile is moved, insert it to the next frontier list
+              if (database[idx] <= depth + 1) continue;
+
+              database[idx] = depth + 1;
+              next_frontier[next_frontier_len] = next;
+              next_frontier_len += 1;
             } else {
-              if (database[idx] > depth) {
-                database[idx] = depth;
-                frontier[frontier_end] = next;
-                frontier_end +%= 1;
-              }
+              // A non-pattern tile is moved, insert it back into the current
+              // frontier list
+              if (database[idx] <= depth) continue;
+
+              database[idx] = depth;
+              frontier[frontier_end] = next;
+              frontier_end +%= 1;
             }
           }
         }
 
-        depth += 1;
-        frontier_start = 0;
-        frontier_end = next_frontier_len;
-        next_frontier_len = 0;
-
+        // Swap the buffers, set the next frontier as the current frontier and
+        // reuse the current frontier's memory as to build the next frontier
         const tmp = frontier;
         frontier = next_frontier;
         next_frontier = tmp;
+
+        // Reset the start and end indices
+        frontier_start = 0;
+        frontier_end = next_frontier_len;
+        next_frontier_len = 0;
       }
     }
   };
 }
 
+// Disjoint pattern database heuristics
 pub fn PDBHeuristic(patterns: []const []const u4) type {
   return struct {
     const PatternTypes = blk: {
       var results: [patterns.len]type = undefined;
 
       for (&results, patterns) |*result, pattern| {
+        // Add the empty tile to the pattern
         result.* = Pattern(.{0} ++ pattern);
       }
 
@@ -147,17 +165,18 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       break :blk result;
     };
 
-    pub const MAX_QUEUE_SIZE = blk: {
-      var result = 0;
+    // The buffer used during the construction of the pattern database
+    pub const ScratchBuffer = blk: {
+      var size = 0;
       for (PatternTypes) |PatternType| {
-        result = @max(result, PatternType.QUEUE_SIZE);
+        size = @max(size, PatternType.QUEUE_SIZE);
       }
-      break :blk result;
+      break :blk [2 * size]Board;
     };
 
     database: [TOTAL_SIZE]Cost align(8),
 
-    pub fn generate(self: *@This(), buffer: *[2 * MAX_QUEUE_SIZE]Board) void {
+    pub fn generate(self: *@This(), buffer: *ScratchBuffer) void {
       var view: []Cost = &self.database;
 
       inline for (PatternTypes) |PatternType| {
@@ -166,7 +185,13 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       }
     }
 
-    pub fn checksum(self: *const @This()) [8]u8 {
+    const Checksum = [@sizeOf(u64)]u8;
+
+    // Generate a checksum for integrity checking using a non-cryptographic
+    // hash function: <https://github.com/ztanml/fast-hash>
+    pub fn checksum(self: *const @This()) Checksum {
+      const native_endian = @import("builtin").cpu.arch.endian();
+
       const mix = struct {
         fn inner(v: u64) u64 {
           const x = (v ^ (v >> 23)) *% 0x2127599bf4325c37;
@@ -176,24 +201,29 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
 
       const m = 0x880355f21e6d1965;
 
-      if (TOTAL_SIZE % 8 != 0) @compileError("Size of pattern database not divisible by 8");
-      const chunks: *const [TOTAL_SIZE / 8]u64 = @ptrCast(&self.database);
+      // Split the memory into chunks of u64
+      const Chunks = *const [TOTAL_SIZE / @sizeOf(u64)]u64;
+      const chunks: Chunks = @ptrCast(&self.database);
+
       var h: u64 = @truncate(TOTAL_SIZE * m);
       for (chunks) |chunk| {
+        // Use little endian during computation because it's more popular
         const v = if (native_endian == .little) chunk else @byteSwap(chunk);
         h = (h ^ mix(v)) *% m;
       }
 
       h = mix(h);
 
+      // Export the checksum as bytes in big endian for storage
       const result = if (native_endian == .big) h else @byteSwap(h);
       return @bitCast(result);
     }
 
     pub fn checkIntegrity(self: *const @This()) bool {
-      const correct: u64 = comptime blk_correct: {
-        const correct_file: *const [8]u8 = @embedFile("patterns.chk");
-        break :blk_correct @bitCast(correct_file.*);
+      // Load the correct checksum and converts it to u64 for comparison
+      const correct: u64 = comptime blk: {
+        const correct_file: *const Checksum = @embedFile("patterns.chk");
+        break :blk @bitCast(correct_file.*);
       };
 
       return @as(u64, @bitCast(self.checksum())) == correct;
@@ -253,4 +283,4 @@ pub const PatternDatabase654 = PDBHeuristic(&.{
 });
 
 // TODO: Use the build system to dynamically select pattern database
-pub const Default = PatternDatabase663;
+pub const Default = PatternDatabase555;

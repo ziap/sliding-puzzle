@@ -249,8 +249,13 @@ pub fn display(self: Board, writer: anytype) !void {
   }
 }
 
+// Lehmer64 PRNG hash function, a very fast but weak hash function that
+// comphensate its speed for some extra collisions
 pub fn hash(self: Board, bits: comptime_int) common.Uint(bits) {
   // MCG multiplier from: <https://arxiv.org/pdf/2001.05304>
   const h = self.data *% 0xf1357aea2e62a9c5;
+
+  // I use shift instead of truncation because the high bits have better
+  // statistical quality
   return @intCast(h >> (64 - bits));
 }
