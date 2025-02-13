@@ -15,16 +15,20 @@ pub fn main() !void {
   defer buffer.flush() catch {};
   var writer = buffer.writer();
 
-  var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-  defer arena.deinit();
-  const allocator = arena.allocator();
+  const solver = blk: {
+    const S = struct {
+      var solver: Solver = undefined;
+    };
 
-  var solver = try allocator.create(Solver);
+    break :blk &S.solver;
+  };
   
   var rng = Pcg32.withSeed(1337);
 
-  const heuristic = blk: {
-    const heuristic = try allocator.create(Heuristic);
+  const heuristic: *const Heuristic = blk: {
+    const S = struct {
+      var heuristic: Heuristic = undefined;
+    };
 
     const FILE_PATH = "patterns.gz";
     const compressed_file = std.fs.cwd().openFile(FILE_PATH, .{}) catch |err| {
@@ -34,7 +38,7 @@ pub fn main() !void {
     defer compressed_file.close();
     const compressed_reader = compressed_file.reader();
 
-    var decompress_stream = std.io.fixedBufferStream(&heuristic.database);
+    var decompress_stream = std.io.fixedBufferStream(&S.heuristic.database);
     var decompress_writer = decompress_stream.writer();
 
     std.compress.flate.decompress(compressed_reader, &decompress_writer) catch |err| {
@@ -42,12 +46,12 @@ pub fn main() !void {
       return;
     };
 
-    if (!heuristic.checkIntegrity()) {
+    if (!S.heuristic.checkIntegrity()) {
       std.debug.print("Error: Pattern database corrupted\n", .{});
       return;
     }
 
-    break :blk heuristic;
+    break :blk &S.heuristic;
   };
 
   var max_time: f64 = 0;

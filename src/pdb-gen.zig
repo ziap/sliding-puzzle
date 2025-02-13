@@ -2,16 +2,19 @@ const std = @import("std");
 const Board = @import("Board.zig");
 
 const Heuristic = @import("pattern-database.zig").Default;
-const ManhattanHeuristic = Board.ManhattanHeuristic;
 
 pub fn main() !void {
-  const allocator = std.heap.page_allocator;
+  const S = struct {
+    var heuristic: Heuristic = undefined;
+    var buffer: [2 * Heuristic.MAX_QUEUE_SIZE]Board = undefined;
+  };
 
-  const heuristic = try allocator.create(Heuristic);
-  defer allocator.destroy(heuristic);
-
+  var timer = try std.time.Timer.start();
   std.debug.print("Generating the pattern database\n", .{});
-  try heuristic.generate(allocator);
+  S.heuristic.generate(&S.buffer);
+
+  const elapsed = @as(f64, @floatFromInt(timer.read())) / std.time.ns_per_ms;
+  std.debug.print("Generated the pattern database in: {d}ms\n", .{ elapsed });
 
   {
     std.debug.print("Exporting the pattern database\n", .{});
@@ -19,7 +22,7 @@ pub fn main() !void {
     defer compressed_file.close();
     const compressed_writer = compressed_file.writer();
 
-    var data_stream = std.io.fixedBufferStream(&heuristic.database);
+    var data_stream = std.io.fixedBufferStream(&S.heuristic.database);
     var data_reader = data_stream.reader();
 
     try std.compress.flate.compress(&data_reader, compressed_writer, .{
@@ -31,6 +34,6 @@ pub fn main() !void {
     std.debug.print("Exporting the checksum\n", .{});
     const checksum_file = try std.fs.cwd().createFile("src/patterns.chk", .{});
     defer checksum_file.close();
-    try checksum_file.writeAll(&heuristic.checksum());
+    try checksum_file.writeAll(&S.heuristic.checksum());
   }
 }

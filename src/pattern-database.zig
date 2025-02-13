@@ -33,6 +33,9 @@ fn Pattern(pattern: []const u4) type {
     const DBIndex = u32;
     const PatternType = @This();
 
+    const QueueIndex = common.UintFit(SIZE + 1);
+    const QUEUE_SIZE = @as(comptime_int, (-% @as(QueueIndex, 1))) + 1;
+
     fn index(board: Board) DBIndex {
       const S = struct {
         const pos_map = blk: {
@@ -68,16 +71,11 @@ fn Pattern(pattern: []const u4) type {
       return idx;
     }
 
-    fn search(database: []Cost, allocator: anytype) !void {
+    fn search(database: []Cost, buffer: *[2 * QUEUE_SIZE]Board) void {
       @memset(database, MAX_COST);
 
-      const QueueIndex = common.UintFit(SIZE + 1);
-      const QUEUE_SIZE = @as(comptime_int, (-% @as(QueueIndex, 1))) + 1;
-
-      var frontier = try allocator.alloc(Board, QUEUE_SIZE);
-      defer allocator.free(frontier);
-      var next_frontier = try allocator.alloc(Board, QUEUE_SIZE);
-      defer allocator.free(next_frontier);
+      var frontier = buffer[0..QUEUE_SIZE];
+      var next_frontier = buffer[QUEUE_SIZE..];
 
       var depth: Cost = 0;
       var frontier_start: QueueIndex = 0;
@@ -149,19 +147,21 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       break :blk result;
     };
 
+    pub const MAX_QUEUE_SIZE = blk: {
+      var result = 0;
+      for (PatternTypes) |PatternType| {
+        result = @max(result, PatternType.QUEUE_SIZE);
+      }
+      break :blk result;
+    };
+
     database: [TOTAL_SIZE]Cost align(8),
 
-    pub fn generate(self: *@This(), allocator: anytype) !void {
-      const std = @import("std");
-
-      var arena = std.heap.ArenaAllocator.init(allocator);
-      defer arena.deinit();
-
+    pub fn generate(self: *@This(), buffer: *[2 * MAX_QUEUE_SIZE]Board) void {
       var view: []Cost = &self.database;
 
       inline for (PatternTypes) |PatternType| {
-        _ = arena.reset(.retain_capacity);
-        try PatternType.search(view, arena.allocator());
+        PatternType.search(view, buffer[0..2 * PatternType.QUEUE_SIZE]);
         view = view[PatternType.SIZE..];
       }
     }
@@ -253,4 +253,4 @@ pub const PatternDatabase654 = PDBHeuristic(&.{
 });
 
 // TODO: Use the build system to dynamically select pattern database
-pub const Default = PatternDatabase555;
+pub const Default = PatternDatabase663;
