@@ -188,34 +188,47 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
     const Checksum = [@sizeOf(u64)]u8;
 
     // Generate a checksum for integrity checking using a non-cryptographic
-    // hash function: <https://github.com/ztanml/fast-hash>
+    // hash function inspird by: <https://github.com/orlp/foldhash>
     pub fn checksum(self: *const @This()) Checksum {
-      const native_endian = @import("builtin").cpu.arch.endian();
+      const is_le = comptime blk: {
+        const native_endian = @import("builtin").cpu.arch.endian();
+        break :blk native_endian == .little;
+      };
 
-      const mix = struct {
-        fn inner(v: u64) u64 {
-          const x = (v ^ (v >> 23)) *% 0x2127599bf4325c37;
-          return x ^ (x >> 47);
+      const mum = struct {
+        // Multiply-and-mix operation commonly used in wyhash, xxhash, etc.
+        fn inner(x: u64, y: u64) u64 {
+          const m = @as(u128, x) *% @as(u128, y);
+
+          const hi: u64 = @intCast(m >> 64);
+          const lo: u64 = @truncate(m);
+
+          return hi ^ lo;
         }
       }.inner;
 
-      const m = 0x880355f21e6d1965;
-
-      // Split the memory into chunks of u64
-      const Chunks = *const [TOTAL_SIZE / @sizeOf(u64)]u64;
+      // Split the memory into chunks of u64 pairs
+      const Chunks = *const [TOTAL_SIZE / (@sizeOf(u64) * 2)][2]u64;
       const chunks: Chunks = @ptrCast(&self.database);
 
-      var h: u64 = @truncate(TOTAL_SIZE * m);
+      // A good half-width 128-bit MCG multiplier used in PCG64-DXSM
+      const m = 0xda942042e4dd58b5;
+
+      var h: u64 = mum(TOTAL_SIZE, m);
       for (chunks) |chunk| {
-        // Use little endian during computation because it's more popular
-        const v = if (native_endian == .little) chunk else @byteSwap(chunk);
-        h = (h ^ mix(v)) *% m;
+        // Use little endian during computation for faster fetch on x86_64
+        const a = if (comptime is_le) chunk[0] else @byteSwap(chunk[0]);
+        const b = if (comptime is_le) chunk[1] else @byteSwap(chunk[1]);
+
+        // Xor with a random constant to avoid trivial zero collapse
+        h = mum(h ^ a, 0x9e3779b97f4a7c15 ^ b);
       }
 
-      h = mix(h);
+      // Finalization step to avalanche the bits
+      h = mum(h, m);
 
       // Export the checksum as bytes in big endian for storage
-      const result = if (native_endian == .big) h else @byteSwap(h);
+      const result = if (comptime is_le) @byteSwap(h) else h;
       return @bitCast(result);
     }
 
