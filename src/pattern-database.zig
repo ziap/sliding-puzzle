@@ -38,8 +38,7 @@ fn Pattern(pattern: []const u4) type {
     const PatternType = @This();
 
     // Will be used for the construction of the pattern database
-    const QueueIndex = common.UintFit(SIZE + 1);
-    const QUEUE_SIZE = @as(comptime_int, (-% @as(QueueIndex, 1))) + 1;
+    const Stacks = [2]common.StaticList(Board, SIZE);
 
     // Extract the pattern from the board and returns an index
     fn index(board: Board) DBIndex {
@@ -79,31 +78,26 @@ fn Pattern(pattern: []const u4) type {
     }
 
     // Performs breadth-first search to fill up the pattern database
-    fn search(database: []Cost, buffer: *[2 * QUEUE_SIZE]Board) void {
+    fn search(database: []Cost, buffer: *Stacks) void {
       @memset(database, MAX_COST);
 
-      var frontier = buffer[0..QUEUE_SIZE];
-      var next_frontier = buffer[QUEUE_SIZE..];
+      var frontier = &buffer[0];
+      var next_frontier = &buffer[1];
+
+      frontier.len = 0;
+      next_frontier.len = 0;
 
       // Add the initial board to the database
       var depth: Cost = 0;
-      var frontier_start: QueueIndex = 0;
-      var frontier_end: QueueIndex = 1;
-      frontier[0] = Board.initial;
+      frontier.push(Board.initial);
       database[index(Board.initial)] = 0;
 
-      var next_frontier_len: QueueIndex = 0;
-
-      while (frontier_end != frontier_start) : (depth += 1) {
-        while (frontier_end != frontier_start) {
-          // Remove a board from the frontier list
-          const board = frontier[frontier_start];
-          frontier_start +%= 1;
-
+      while (frontier.len > 0) : (depth += 1) {
+        while (frontier.pop()) |board| {
           // The board is reached earlier, don't bother expanding its children
           if (database[index(board)] < depth) continue;
 
-          const moves = board.getMoves(Board.invalid);
+          const moves = board.getMoves(Board.invalid, false);
           for (moves.view()) |next| {
             const empty_pos = next.emptyPos();
             const moved: u4 = @truncate((board.data ^ next.data) >> empty_pos);
@@ -114,16 +108,14 @@ fn Pattern(pattern: []const u4) type {
               if (database[idx] <= depth + 1) continue;
 
               database[idx] = depth + 1;
-              next_frontier[next_frontier_len] = next;
-              next_frontier_len += 1;
+              next_frontier.push(next);
             } else {
               // A non-pattern tile is moved, insert it back into the current
               // frontier list
               if (database[idx] <= depth) continue;
 
               database[idx] = depth;
-              frontier[frontier_end] = next;
-              frontier_end +%= 1;
+              frontier.push(next);
             }
           }
         }
@@ -133,11 +125,6 @@ fn Pattern(pattern: []const u4) type {
         const tmp = frontier;
         frontier = next_frontier;
         next_frontier = tmp;
-
-        // Reset the start and end indices
-        frontier_start = 0;
-        frontier_end = next_frontier_len;
-        next_frontier_len = 0;
       }
     }
   };
@@ -167,20 +154,37 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
 
     // The buffer used during the construction of the pattern database
     pub const ScratchBuffer = blk: {
-      var size = 0;
-      for (PatternTypes) |PatternType| {
-        size = @max(size, PatternType.QUEUE_SIZE);
+      const Type = @import("std").builtin.Type;
+
+      var fields: [patterns.len]Type.UnionField = undefined;
+      
+      for (PatternTypes, &fields) |PatternType, *field| {
+        const Stacks = PatternType.Stacks;
+
+        field.* = .{
+          .name = @typeName(PatternType),
+          .type = Stacks,
+          .alignment = @alignOf(Stacks),
+        };
       }
-      break :blk [2 * size]Board;
+      
+      break :blk @Type(.{
+        .Union = .{
+          .layout = .auto,
+          .tag_type = null,
+          .fields = &fields,
+          .decls = &.{},
+        },
+      });
     };
 
-    database: [TOTAL_SIZE]Cost align(8),
+    database: [TOTAL_SIZE]Cost align(@alignOf(u64)),
 
     pub fn generate(self: *@This(), buffer: *ScratchBuffer) void {
       var view: []Cost = &self.database;
 
       inline for (PatternTypes) |PatternType| {
-        PatternType.search(view, buffer[0..2 * PatternType.QUEUE_SIZE]);
+        PatternType.search(view, &@field(buffer, @typeName(PatternType)));
         view = view[PatternType.SIZE..];
       }
     }

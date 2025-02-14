@@ -13,6 +13,7 @@
       buildInputs = [
         pkgs.zig
         pkgs.poop
+        pkgs.static-web-server
       ];
     };
   };

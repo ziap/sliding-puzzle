@@ -39,7 +39,7 @@ pub fn randomMoves(rng: anytype, random_moves: anytype) Board {
   var board = initial;
 
   for (0..random_moves) |_| {
-    const moves = board.getMoves(last);
+    const moves = board.getMoves(last, false);
     last = board;
     board = moves.buf[rng.bounded(moves.len)];
   }
@@ -131,7 +131,7 @@ pub fn solvable(self: Board) bool {
 
 // Move generation using bitwise operations. The main idea is to use XOR to
 // swap the empty tile with its neighboring tiles.
-pub fn getMoves(self: Board, last: Board) MoveList {
+pub fn getMoves(self: Board, last: Board, comptime all: bool) MoveList {
   const board = self.data;
 
   const empty = self.emptyPos();
@@ -148,6 +148,8 @@ pub fn getMoves(self: Board, last: Board) MoveList {
     if (up != last.data) moves.push(.{ .data = up });
   }
 
+  if (comptime all and moves.len == 0) moves.push(self);
+
   if (empty_row > 0) {
     const pos = empty - 16;
     const mask = (board >> pos) & 0xf;
@@ -155,6 +157,8 @@ pub fn getMoves(self: Board, last: Board) MoveList {
 
     if (down != last.data) moves.push(.{ .data = down });
   }
+
+  if (comptime all and moves.len == 1) moves.push(self);
 
   if (empty_col < 12) {
     const pos = empty + 4;
@@ -164,6 +168,8 @@ pub fn getMoves(self: Board, last: Board) MoveList {
     if (left != last.data) moves.push(.{ .data = left });
   }
 
+  if (comptime all and moves.len == 2) moves.push(self);
+
   if (empty_col > 0) {
     const pos = empty - 4;
     const mask = (board >> pos) & 0xf;
@@ -171,6 +177,8 @@ pub fn getMoves(self: Board, last: Board) MoveList {
 
     if (right != last.data) moves.push(.{ .data = right });
   }
+
+  if (comptime all and moves.len == 3) moves.push(self);
 
   return moves;
 }

@@ -165,7 +165,7 @@ pub fn trySolve(self: *AStar, board: Board, heuristic: anytype) bool {
   while (!self.heap[0].board.solved()) {
     const current = self.heap[0];
 
-    const moves = current.board.getMoves(current.parent);
+    const moves = current.board.getMoves(current.parent, false);
     const remaining = self.closed_idx - self.len;
 
     // This doesn't accurately determine if space is still available but it's

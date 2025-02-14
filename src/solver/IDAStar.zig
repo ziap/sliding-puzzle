@@ -31,7 +31,7 @@ pub fn iterate(self: *IDAStar, board: Board, parent: Board, heuristic: anytype) 
   self.stack.buf[0].len = 0;
   self.stack.buf[0].buf[0] = board;
 
-  self.stack.buf[1] = board.getMoves(parent);
+  self.stack.buf[1] = board.getMoves(parent, false);
 
   var next_min_cost = MAX_COST;
   while (self.stack.len > 1) {
@@ -56,7 +56,7 @@ pub fn iterate(self: *IDAStar, board: Board, parent: Board, heuristic: anytype) 
       if (f_cost <= self.min_cost) {
         // Append to the stack, avoid moving to the previous configuration
         const prev = self.stack.buf[self.stack.len - 2];
-        self.stack.push(next_board.getMoves(prev.buf[prev.len]));
+        self.stack.push(next_board.getMoves(prev.buf[prev.len], false));
       } else {
         next_min_cost = @min(next_min_cost, f_cost);
       }
