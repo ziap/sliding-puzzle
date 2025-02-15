@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="color-scheme" content="dark light">
+    <title>Document</title>
+    <link rel="stylesheet" href="styles.css">
+    <script type="module" src="./js/main.js"></script>
+  </head>
+  <body>
+    <div class="container">
+      <h1 class="title">15-puzzle solver</h1>
+
+      <main>
+        <div class="game-board">
+          <div class="tile__container"><div data-num="1" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="2" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="3" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="4" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="5" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="6" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="7" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="8" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="9" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="10" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="11" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="12" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="13" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="14" class="tile appear"></div></div>
+          <div class="tile__container"><div data-num="15" class="tile appear"></div></div>
+          <div class="tile__container"></div>
+        </div>
+
+        <div class="game-controls">
+          <section>
+            <h3 class="game-controls__title">Edit board</h3>
+
+            <div class="game-controls__btn-set">
+              <button class="game-controls__btn" id="board-reset">Reset</button>
+              <button class="game-controls__btn" id="board-shuffle">Shuffle</button>
+              <button class="game-controls__btn" id="board-manual">Manual</button>
+            </div>
+          </section>
+
+          <section>
+            <h3 class="game-controls__title">Solver</h3>
+
+            <div class="game-controls__btn-set">
+              <button class="game-controls__btn">Solve</button>
+            </div>
+          </section>
+
+          <section>
+            <h3 class="game-controls__title">Stats</h3>
+            <ul class="game-controls__stats">
+              <li>Solution length: 0</li>
+              <li>Execution time: 0ms</li>
+            </ul>
+          </section>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>
