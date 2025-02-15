@@ -6,7 +6,6 @@ const Board = @import("Board.zig");
 const Solver = @import("solver.zig").HybridSolver;
 
 const Cost = Board.Cost;
-const MAX_COST = Board.MAX_COST;
 
 const Heuristic = @import("pattern-database.zig").Default;
 

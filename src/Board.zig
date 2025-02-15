@@ -148,7 +148,7 @@ pub fn getMoves(self: Board, last: Board, comptime all: bool) MoveList {
     if (up != last.data) moves.push(.{ .data = up });
   }
 
-  if (comptime all and moves.len == 0) moves.push(self);
+  if (all and moves.len == 0) moves.push(self);
 
   if (empty_row > 0) {
     const pos = empty - 16;
@@ -158,7 +158,7 @@ pub fn getMoves(self: Board, last: Board, comptime all: bool) MoveList {
     if (down != last.data) moves.push(.{ .data = down });
   }
 
-  if (comptime all and moves.len == 1) moves.push(self);
+  if (all and moves.len == 1) moves.push(self);
 
   if (empty_col < 12) {
     const pos = empty + 4;
@@ -168,7 +168,7 @@ pub fn getMoves(self: Board, last: Board, comptime all: bool) MoveList {
     if (left != last.data) moves.push(.{ .data = left });
   }
 
-  if (comptime all and moves.len == 2) moves.push(self);
+  if (all and moves.len == 2) moves.push(self);
 
   if (empty_col > 0) {
     const pos = empty - 4;
@@ -178,7 +178,7 @@ pub fn getMoves(self: Board, last: Board, comptime all: bool) MoveList {
     if (right != last.data) moves.push(.{ .data = right });
   }
 
-  if (comptime all and moves.len == 3) moves.push(self);
+  if (all and moves.len == 3) moves.push(self);
 
   return moves;
 }

@@ -57,7 +57,7 @@ fn Pattern(pattern: []const u4) type {
         // in a bitset during the Lehmer code construction
         var b = board.data;
         inline for (0..16) |pos| {
-          shifts[pos_map[b & 0xf]] = @as(u16, 1) << pos;
+          shifts[pos_map[@intCast(b & 0xf)]] = @as(u16, 1) << pos;
           b >>= 4;
         }
 

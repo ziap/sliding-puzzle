@@ -18,7 +18,6 @@ const BuildOptions = struct {
         .bulk_memory,
         .extended_const,
         .multivalue,
-        .mutable_globals,
         .nontrapping_fptoint,
         .sign_ext,
         .simd128,
@@ -69,19 +68,36 @@ fn generatePattern(b: *std.Build, opt: BuildOptions) void {
   generate.dependOn(&generate_cmd.step);
 }
 
-fn buildWasmBoard(b: *std.Build, opt: BuildOptions) void {
-  const wasm_board = b.addExecutable(.{
-    .name = "board",
-    .root_source_file = b.path("src/wasm-board.zig"),
+fn buildWasm(b: *std.Build, opt: BuildOptions) void {
+  const wasm_main = b.addExecutable(.{
+    .name = "main",
+    .root_source_file = b.path("src/wasm-main.zig"),
     .target = opt.wasm_target,
     .optimize = opt.optimize,
     .strip = opt.strip,
   });
 
-  wasm_board.rdynamic = true;
-  wasm_board.entry = .disabled;
-  const bin = wasm_board.getEmittedBin();
-  const artifact = b.addInstallFile(bin, "board.wasm");
+  wasm_main.rdynamic = true;
+  wasm_main.entry = .disabled;
+  const bin = wasm_main.getEmittedBin();
+  const artifact = b.addInstallFile(bin, "main.wasm");
+
+  b.getInstallStep().dependOn(&artifact.step);
+}
+
+fn buildWasmWorker(b: *std.Build, opt: BuildOptions) void {
+  const wasm_worker = b.addExecutable(.{
+    .name = "worker",
+    .root_source_file = b.path("src/wasm-worker.zig"),
+    .target = opt.wasm_target,
+    .optimize = opt.optimize,
+    .strip = opt.strip,
+  });
+
+  wasm_worker.rdynamic = true;
+  wasm_worker.entry = .disabled;
+  const bin = wasm_worker.getEmittedBin();
+  const artifact = b.addInstallFile(bin, "worker.wasm");
 
   b.getInstallStep().dependOn(&artifact.step);
 }
@@ -90,5 +106,6 @@ pub fn build(b: *std.Build) void {
   const opt = BuildOptions.default(b);
   generatePattern(b, opt);
   buildCli(b, opt);
-  buildWasmBoard(b, opt);
+  buildWasm(b, opt);
+  buildWasmWorker(b, opt);
 }

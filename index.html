@@ -47,15 +47,15 @@
             <h3 class="game-controls__title">Solver</h3>
 
             <div class="game-controls__btn-set">
-              <button class="game-controls__btn">Solve</button>
+              <button class="game-controls__btn" id="board-solve">Loading...</button>
             </div>
           </section>
 
           <section>
             <h3 class="game-controls__title">Stats</h3>
             <ul class="game-controls__stats">
-              <li>Solution length: 0</li>
-              <li>Execution time: 0ms</li>
+              <li>Solution length: <span id="stats-len">0</span></li>
+              <li>Execution time: <span id="stats-time">0</span>ms</li>
             </ul>
           </section>
         </div>
