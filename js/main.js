@@ -24,7 +24,7 @@ class Timer {
    */
   step(x) {
     const elapsed = x - this.startTime
-    statsTime.textContent = elapsed.toPrecision(4)
+    statsTime.textContent = elapsed.toFixed(0)
 
     if (!this.stopped) {
       this.handler = requestAnimationFrame(t => this.step(t))
@@ -345,6 +345,7 @@ solveBtn.addEventListener("click", () => {
   getBoard(board)
   exports.boardSolve()
 
+  statsLen.textContent = "0"
   timer.start()
 })
 

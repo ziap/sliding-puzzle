@@ -9,6 +9,11 @@ const Cost = Board.Cost;
 
 const Heuristic = @import("pattern-database.zig").Default;
 
+// TODO: Parse the command-line arguments
+// - seed for RNG
+// - number of games
+// - path to pattern database
+// - ...
 pub fn main() !void {
   var buffer = std.io.bufferedWriter(std.io.getStdOut().writer());
   defer buffer.flush() catch {};
