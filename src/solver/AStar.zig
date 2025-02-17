@@ -7,16 +7,14 @@ const Cost = Board.Cost;
 // A dynamic-programming A* based partial solver
 pub const AStar = @This();
 
-const HEAP_BITS = 20;
-const HASH_BITS = HEAP_BITS + 1; // 50% load factor
-
-const HEAP_SIZE = 1 << HEAP_BITS;
+const HASH_BITS = 21;
 const HASH_SIZE = 1 << HASH_BITS;
+
+const HEAP_SIZE = HASH_SIZE / 2; // 50% load factor
 
 const HASH_INVALID = -% @as(HeapIndex, 1);
 
 const HeapIndex = u32;
-
 const HashIndex = common.Uint(HASH_BITS);
 
 const HeapItem = struct {
