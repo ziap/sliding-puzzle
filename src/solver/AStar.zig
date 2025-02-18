@@ -89,12 +89,12 @@ fn insert(self: *AStar, board: Board, parent: Board, g_cost: Cost, heuristic: an
   const h_cost = heuristic.evaluate(board);
   const f_cost = g_cost + h_cost;
 
-  var p_idx = (heap_idx -% 1) >> 1;
+  var p_idx = (heap_idx -% 1) / 2;
   while (heap_idx > 0 and self.heap[p_idx].f_cost > f_cost) {
     self.moveItem(p_idx, heap_idx);
 
     heap_idx = p_idx;
-    p_idx = (heap_idx -% 1) >> 1;
+    p_idx = (heap_idx -% 1) / 2;
   }
 
   self.hash_table[hash_idx] = heap_idx;
@@ -111,7 +111,7 @@ fn insert(self: *AStar, board: Board, parent: Board, g_cost: Cost, heuristic: an
 
 fn siftDown(self: *AStar, pos: HeapIndex, f_cost: Cost) HeapIndex {
   var idx = pos;
-  var child_idx = (idx << 1) + 1;
+  var child_idx = idx * 2 + 1;
   while (child_idx < self.len) {
     var child_f_cost = self.heap[child_idx].f_cost;
     if (child_idx + 1 < self.len) {
@@ -126,7 +126,7 @@ fn siftDown(self: *AStar, pos: HeapIndex, f_cost: Cost) HeapIndex {
 
     self.moveItem(child_idx, idx);
     idx = child_idx;
-    child_idx = (idx << 1) + 1;
+    child_idx = idx * 2 + 1;
   }
 
   return idx;

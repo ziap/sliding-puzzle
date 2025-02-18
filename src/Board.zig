@@ -126,7 +126,7 @@ fn inversions(self: Board) u32 {
 // Check if a puzzle configuration is solvable using permutation parity.
 // TODO: Speed up the computation and use it as a heuristic
 pub fn solvable(self: Board) bool {
-  return (self.inversions() + (self.emptyPos() >> 4)) & 1 == 1;
+  return (self.inversions() + (self.emptyPos() / 16)) % 2 == 1;
 }
 
 // Move generation using bitwise operations. The main idea is to use XOR to
@@ -135,8 +135,8 @@ pub fn getMoves(self: Board, last: Board, comptime all: bool) MoveList {
   const board = self.data;
 
   const empty = self.emptyPos();
-  const empty_row = empty >> 4;
-  const empty_col = empty & 0xf;
+  const empty_row = empty / 16;
+  const empty_col = empty % 16;
 
   var moves: MoveList = .{};
 
