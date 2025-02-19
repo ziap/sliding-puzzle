@@ -61,7 +61,7 @@ pub fn main() !void {
   var max_time: f64 = 0;
   var total_time: f64 = 0;
 
-  const TOTAL_GAMES = 400;
+  const TOTAL_GAMES = 1000;
 
   for (0..TOTAL_GAMES) |_| {
     const board = Board.randomUniform(&rng);

@@ -18,22 +18,30 @@ pub const HybridSolver = struct {
 
   pub fn solve(self: *HybridSolver, board: Board, heuristic: anytype) *const Solution {
     if (!board.solvable() or board.solved()) return &.{};
-    if (self.a_star.trySolve(board, heuristic)) return self.a_star.reconstruct(0);
+    if (self.a_star.trySolve(board, heuristic)) |pos| {
+      return self.a_star.reconstruct(pos);
+    }
 
     while (true) {
-      // Run IDA* on each frontier nodes in the order of their f-cost
-      const top = self.a_star.heap[0];
-      self.ida_star.init(top.f_cost - top.g_cost);
+      for (self.a_star.frontier.view()) |node_idx| {
+        const node = &self.a_star.nodes[node_idx];
+        const current = self.a_star.boards[node_idx];
+        const parent = self.a_star.boards[node.parent];
 
-      if (self.ida_star.iterate(top.board, top.parent, heuristic)) |ida_sol| {
-        // Combines the solution of A* and IDA*
-        var sol = self.a_star.reconstruct(0);
-        @memcpy(sol.buf[sol.len.. sol.len + ida_sol.len], ida_sol.view());
-        sol.len += ida_sol.len;
-        return sol;
+        self.ida_star.init(node.h_cost);
+        if (self.ida_star.iterate(current, parent, heuristic)) |ida_sol| {
+          var sol = self.a_star.reconstruct(node_idx);
+          @memcpy(sol.buf[sol.len.. sol.len + ida_sol.len], ida_sol.view());
+          sol.len += ida_sol.len;
+          return sol;
+        }
+
+        node.h_cost += 2;
+        if (self.ida_star.min_cost != node.h_cost) unreachable;
+        self.a_star.next_frontier.push(node_idx);
       }
 
-      self.a_star.increaseHeuristic(0, self.ida_star.min_cost);
+      self.a_star.swap();
     }
   }
 };
