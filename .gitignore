@@ -1,5 +1,4 @@
 zig-out/bin/
 .zig-cache
 
-patterns.gz
 src/patterns.chk

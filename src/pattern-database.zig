@@ -178,7 +178,8 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       });
     };
 
-    database: [TOTAL_SIZE]Cost align(@alignOf(u64)),
+    pub const Database = [TOTAL_SIZE]Cost;
+    database: Database align(@alignOf(u64)),
 
     pub fn generate(self: *@This(), buffer: *ScratchBuffer) void {
       var view: []Cost = &self.database;
@@ -300,4 +301,4 @@ pub const PatternDatabase654 = PDBHeuristic(&.{
 });
 
 // TODO: Use "b.addOptions" to dynamically select pattern database
-pub const Default = PatternDatabase555;
+pub const Default = PatternDatabase654;
