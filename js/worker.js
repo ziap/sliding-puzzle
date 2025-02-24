@@ -65,7 +65,6 @@
         const writeStore = write.objectStore(storeName)
         writeStore.add(buffer, patternId)
 
-        const database = new Uint8Array(memory.buffer, exports.databasePtr(), exports.databaseSize())
         database.set(new Uint8Array(buffer))
       }
       postMessage("ready")
