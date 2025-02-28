@@ -2,10 +2,13 @@
   "compilerOptions": {
     "target": "esnext",
     "module": "esnext",
-    "moduleResolution": "esnext",
+    "moduleResolution": "bundler",
     "checkJs": true,
     "noImplicitAny": true,
     "strictNullChecks": true,
     "noImplicitReturns": true
-  }
+  },
+  "include": [
+    "js/**/*"
+  ]
 }

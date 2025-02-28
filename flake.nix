@@ -23,6 +23,9 @@
         # Wasm devtools
         pkgs.binaryen
         pkgs.wabt
+
+        # Type-checking tool
+        pkgs.typescript
       ];
     };
   };
