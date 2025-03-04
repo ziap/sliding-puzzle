@@ -363,10 +363,11 @@ const worker = await (() => {
   })
 
   worker.addEventListener("message", e => {
-    if (!(e.data instanceof Uint8Array)) throw new Error(`Expected 'Uint8Array', got: ${e.data}`)
+    const { data } = e
+    if (data.constructor != Uint8Array) throw new Error(`Expected 'Uint8Array', got: '${typeof data}'`)
     timer.end()
-    const solution = new Uint8Array(memory.buffer, exports.solutionPtr(), e.data.length)
-    solution.set(e.data)
+    const solution = new Uint8Array(memory.buffer, exports.solutionPtr(), data.length)
+    solution.set(data)
     exports.processSolution()
   })
 }
