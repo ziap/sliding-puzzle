@@ -1,6 +1,6 @@
 pub fn Uint(BITS: comptime_int) type {
   return @Type(.{
-    .Int = .{
+    .int = .{
       .signedness = .unsigned,
       .bits = BITS,
     }
