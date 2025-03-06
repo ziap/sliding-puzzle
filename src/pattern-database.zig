@@ -169,7 +169,7 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       }
       
       break :blk @Type(.{
-        .Union = .{
+        .@"union" = .{
           .layout = .auto,
           .tag_type = null,
           .fields = &fields,

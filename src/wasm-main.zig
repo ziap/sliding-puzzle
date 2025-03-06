@@ -2,7 +2,6 @@ const Board = @import("Board.zig");
 const Pcg32 = @import("Pcg32.zig");
 const Solution = @import("solver.zig").Solution;
 
-var rng: Pcg32 = undefined;
 var solution: Solution = undefined;
 
 var buffer: [16]u8 = undefined;
@@ -25,11 +24,9 @@ export fn bufferPtr() *const [16]u8 {
   return &buffer;
 }
 
-export fn init() void {
-  seedRng(&rng.state);
-}
-
 export fn boardShuffle() *const [16]u8 {
+  var rng: Pcg32 = undefined;
+  seedRng(&rng.state);
   const board = Board.randomUniform(&rng);
 
   var b = board.data;

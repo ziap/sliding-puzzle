@@ -143,7 +143,6 @@ const wasm = await WebAssembly.instantiateStreaming(fetch("./zig-out/main.wasm")
 /**
  * @typedef BoardExport
  * @prop {WebAssembly.Memory} memory
- * @prop {() => void} init
  * @prop {() => void} boardSolve
  * @prop {() => number} boardShuffle
  * @prop {() => number} bufferPtr
@@ -154,8 +153,6 @@ const wasm = await WebAssembly.instantiateStreaming(fetch("./zig-out/main.wasm")
 
 const exports = /** @type{BoardExport} */(wasm.instance.exports)
 const memory = exports.memory
-
-exports.init()
 
 /**
  * @param {Uint8Array} data 
