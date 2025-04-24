@@ -15,7 +15,7 @@ const STACK_SIZE = HASH_SIZE / 2; // 50% load factor
 const StackIndex = u32;
 const HashIndex = common.Uint(HASH_BITS);
 
-const HASH_INVALID = -% @as(StackIndex, 1);
+const HASH_INVALID: StackIndex = @truncate(-1);
 
 const Stack = common.StaticList(StackIndex, STACK_SIZE);
 const Node = struct {

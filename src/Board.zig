@@ -1,7 +1,7 @@
 const common = @import("common.zig");
 
 pub const Cost = u8;
-pub const MAX_COST = -% @as(Cost, 1);
+pub const MAX_COST: Cost = @truncate(-1);
 
 // Bitboard representation of the sliding puzzle
 const Board = @This();
