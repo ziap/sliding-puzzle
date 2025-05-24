@@ -27,7 +27,7 @@ pub fn main() !void {
     break :blk &S.solver;
   };
   
-  var rng = Pcg32.withSeed(1337);
+  var rng: Pcg32 = .withSeed(1337);
 
   const heuristic: *const Heuristic = blk: {
     const S = struct {
@@ -64,7 +64,7 @@ pub fn main() !void {
   const TOTAL_GAMES = 1000;
 
   for (0..TOTAL_GAMES) |_| {
-    const board = Board.randomUniform(&rng);
+    const board: Board = .randomUniform(&rng);
     board.display(&writer) catch return;
     buffer.flush() catch return;
 

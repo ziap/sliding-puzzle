@@ -89,8 +89,8 @@ fn Pattern(pattern: []const u4) type {
 
       // Add the initial board to the database
       var depth: Cost = 0;
-      frontier.push(Board.initial);
-      database[index(Board.initial)] = 0;
+      frontier.push(.initial);
+      database[index(.initial)] = 0;
 
       while (frontier.len > 0) : (depth += 1) {
         while (frontier.pop()) |board| {

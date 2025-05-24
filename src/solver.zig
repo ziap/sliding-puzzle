@@ -17,7 +17,7 @@ pub const HybridSolver = struct {
   ida_star: IDAStar,
 
   pub fn solve(self: *HybridSolver, board: Board, heuristic: anytype) *const Solution {
-    if (!board.solvable() or board.solved()) return &.{};
+    if (!board.solvable() or board.solved()) return &.empty;
     if (self.a_star.trySolve(board, heuristic)) |pos| {
       return self.a_star.reconstruct(pos);
     }

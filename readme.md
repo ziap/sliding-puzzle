@@ -9,7 +9,7 @@ be embedded in a web page.
 The easiest way to use the program is to go to the [deployed
 website](//ziap.github.io/sliding-puzzle).
 
-This project uses [Zig 0.13](//ziglang.org/download/#release-0.13.0). Only the
+This project uses [Zig 0.14](//ziglang.org/download/#release-0.14.0). Only the
 Zig compiler is required to build the project. Some additional tools that are
 useful for development:
 

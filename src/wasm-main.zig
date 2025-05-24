@@ -27,7 +27,7 @@ export fn bufferPtr() *const [16]u8 {
 export fn boardShuffle() *const [16]u8 {
   var rng: Pcg32 = undefined;
   seedRng(&rng.state);
-  const board = Board.randomUniform(&rng);
+  const board: Board = .randomUniform(&rng);
 
   var b = board.data;
   for (&buffer) |*tile| {
@@ -57,7 +57,7 @@ export fn processSolution() void {
   };
   var current = constructBoard();
   for (solution.view(), &S.steps) |board, *step| {
-    const moves = current.getMoves(Board.invalid, true);
+    const moves = current.getMoves(.invalid, true);
     inline for (moves.buf, 0..) |move, dir| {
       if (move.data == board.data) {
         step.* = dir;

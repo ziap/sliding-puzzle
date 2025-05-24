@@ -18,11 +18,16 @@ pub fn UintFit(MAX: comptime_int) type {
 // everything has a strong upper bound and performance is critical
 pub fn StaticList(T: type, capacity: comptime_int) type {
   return struct {
-    buf: [capacity]T = undefined,
+    buf: [capacity]T,
 
     // The type of the length of the list is dynamically computed to fit the
     // range from 0 to capacity
-    len: UintFit(capacity + 1) = 0,
+    len: UintFit(capacity + 1),
+
+    pub const empty: @This() = .{
+      .buf = undefined,
+      .len = 0,
+    };
 
     pub fn view(self: *const @This()) []const T {
       return self.buf[0..self.len];

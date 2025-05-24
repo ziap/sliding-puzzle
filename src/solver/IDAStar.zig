@@ -9,7 +9,10 @@ const MAX_SOLUTION_LEN = solver.MAX_SOLUTION_LEN;
 // An iterative deepening A* solver
 const IDAStar = @This();
 
-const NOT_SOLVED: Solution = .{ .len = MAX_SOLUTION_LEN + 1};
+const NOT_SOLVED: Solution = .{
+  .buf = undefined,
+  .len = MAX_SOLUTION_LEN + 1,
+};
 
 const MAX_COST = Board.MAX_COST;
 
@@ -78,6 +81,6 @@ pub fn solve(self: *IDAStar, board: Board, heuristic: anytype) *const Solution {
   self.init(heuristic.evaluate(board));
 
   while (true) {
-    return self.iterate(board, Board.invalid, heuristic) orelse continue;
+    return self.iterate(board, .invalid, heuristic) orelse continue;
   }
 }

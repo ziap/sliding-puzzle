@@ -138,7 +138,7 @@ pub fn getMoves(self: Board, last: Board, comptime all: bool) MoveList {
   const empty_row = empty / 16;
   const empty_col = empty % 16;
 
-  var moves: MoveList = .{};
+  var moves: MoveList = .empty;
 
   if (empty_row < 3) {
     const pos = empty + 16;
