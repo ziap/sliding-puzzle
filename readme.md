@@ -4,6 +4,20 @@ An algorithm to solve the 4x4 sliding-tile puzzle. It can optimally solve many
 random instances of the puzzle in a fraction of a second and is small enough to
 be embedded in a web page.
 
+## Features
+
+- Hybrid A\*/IDA\* search algorithm based on [this
+paper](//www.ijcai.org/Proceedings/2019/0168.pdf).
+- Optimized priority queue implementation with zero memory allocation and O(1)
+time complexity for all operations.
+- Additive pattern database heuristic with zero cost, compile-time
+configuration.
+- Compiled to WebAssembly with optimizations for both performance and loading
+time for a cross-platform, responsive web UI.
+- Pattern database caching with
+[IndexedDB](//developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) for
+faster subsequent accesses.
+
 ## Usage
 
 The easiest way to use the program is to go to the [deployed

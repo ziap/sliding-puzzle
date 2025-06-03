@@ -269,7 +269,7 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
 // _ # # #  # _ _ _  _ _ _ _
 // _ # # _  # _ _ _  _ _ _ #
 // _ _ _ _  # # _ _  _ _ # #
-// _ _ _ _  # _ _ _  _ # #
+// _ _ _ _  # _ _ _  _ # # _
 
 pub const PatternDatabase555 = PDBHeuristic(&.{
   &.{2, 3, 4, 6, 7},
@@ -280,7 +280,7 @@ pub const PatternDatabase555 = PDBHeuristic(&.{
 // # # # #  _ _ _ _  _ _ _ _
 // _ # # _  # _ _ _  _ _ _ #
 // _ _ _ _  # _ _ _  _ # # #
-// _ _ _ _  # _ _ _  _ # #
+// _ _ _ _  # _ _ _  _ # # _
 
 pub const PatternDatabase663 = PDBHeuristic(&.{
   &.{1, 2, 3, 4, 6, 7},
@@ -291,7 +291,7 @@ pub const PatternDatabase663 = PDBHeuristic(&.{
 // # # # #  _ _ _ _  _ _ _ _
 // _ # # _  # _ _ _  _ _ _ #
 // _ _ _ _  # # _ _  _ _ # #
-// _ _ _ _  # _ _ _  _ # #
+// _ _ _ _  # _ _ _  _ # # _
 
 // Hybrid partition inspired from the last two
 pub const PatternDatabase654 = PDBHeuristic(&.{
