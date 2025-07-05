@@ -37,9 +37,6 @@ fn Pattern(pattern: []const u4) type {
     const DBIndex = u32;
     const PatternType = @This();
 
-    // Will be used for the construction of the pattern database
-    const Stacks = [2]common.StaticList(Board, SIZE);
-
     // Extract the pattern from the board and returns an index
     fn index(board: Board) DBIndex {
       const shifts = blk: {
@@ -78,11 +75,11 @@ fn Pattern(pattern: []const u4) type {
     }
 
     // Performs breadth-first search to fill up the pattern database
-    fn search(database: []Cost, buffer: *Stacks) void {
+    fn search(database: []Cost, buffer: []Board) void {
       @memset(database, MAX_COST);
 
-      var frontier = &buffer[0];
-      var next_frontier = &buffer[1];
+      var frontier = common.sliceList(Board, buffer[0..SIZE]);
+      var next_frontier = common.sliceList(Board, buffer[SIZE..2 * SIZE]);
 
       frontier.len = 0;
       next_frontier.len = 0;
@@ -154,28 +151,13 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
 
     // The buffer used during the construction of the pattern database
     pub const ScratchBuffer = blk: {
-      const Type = @import("std").builtin.Type;
+      var max_size: comptime_int = 0;
 
-      var fields: [patterns.len]Type.UnionField = undefined;
-      
-      for (PatternTypes, &fields) |PatternType, *field| {
-        const Stacks = PatternType.Stacks;
-
-        field.* = .{
-          .name = @typeName(PatternType),
-          .type = Stacks,
-          .alignment = @alignOf(Stacks),
-        };
+      for (PatternTypes) |PatternType| {
+        max_size = @max(max_size, PatternType.SIZE);
       }
-      
-      break :blk @Type(.{
-        .@"union" = .{
-          .layout = .auto,
-          .tag_type = null,
-          .fields = &fields,
-          .decls = &.{},
-        },
-      });
+
+      break :blk [max_size * 2]Board;
     };
 
     pub const Database = [TOTAL_SIZE]Cost;
@@ -185,7 +167,7 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       var view: []Cost = &self.database;
 
       inline for (PatternTypes) |PatternType| {
-        PatternType.search(view, &@field(buffer, @typeName(PatternType)));
+        PatternType.search(view, buffer);
         view = view[PatternType.SIZE..];
       }
     }

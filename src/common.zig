@@ -14,15 +14,12 @@ pub fn UintFit(MAX: comptime_int) type {
   return Uint(shift);
 }
 
-// Static-array backed lists, they are used extensively in this project because
+// Fixed-array backed lists, they are used extensively in this project because
 // everything has a strong upper bound and performance is critical
-pub fn StaticList(T: type, capacity: comptime_int) type {
+fn FixedBufferList(T: type, BufferType: type, LengthType: type) type {
   return struct {
-    buf: [capacity]T,
-
-    // The type of the length of the list is dynamically computed to fit the
-    // range from 0 to capacity
-    len: UintFit(capacity + 1),
+    buf: BufferType,
+    len: LengthType,
 
     pub const empty: @This() = .{
       .buf = undefined,
@@ -54,5 +51,22 @@ pub fn StaticList(T: type, capacity: comptime_int) type {
 
       return item;
     }
+  };
+}
+
+// Static-array backed owning lists
+pub fn StaticList(T: type, capacity: comptime_int) type {
+  return FixedBufferList(T, [capacity]T, UintFit(capacity + 1));
+}
+
+fn SliceList(T: type) type {
+  return FixedBufferList(T, []T, usize);
+}
+
+// Slice backed lists for more flexibility but non-owning
+pub fn sliceList(T: type, buf: []T) SliceList(T) {
+  return .{
+    .buf = buf,
+    .len = 0,
   };
 }
