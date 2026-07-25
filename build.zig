@@ -5,6 +5,7 @@ const BuildOptions = struct {
   wasm_target: std.Build.ResolvedTarget,
   optimize: std.builtin.OptimizeMode,
   strip: bool,
+  core: *std.Build.Module,
 
   fn default(b: *std.Build) BuildOptions {
     const target = b.standardTargetOptions(.{});
@@ -24,11 +25,15 @@ const BuildOptions = struct {
         .tail_call,
       }),
     });
+
     return .{
       .target = target,
       .optimize = optimize,
       .wasm_target = wasm_target,
       .strip = optimize == .ReleaseFast or optimize == .ReleaseSmall,
+      .core = b.addModule("core", .{
+        .root_source_file = b.path("src/core/main.zig"),
+      }),
     };
   }
 };
@@ -37,11 +42,14 @@ fn buildCli(b: *std.Build, opt: BuildOptions) void {
   const cli = b.addExecutable(.{
     .name = "sliding-puzzle",
     .root_module = b.createModule(.{
-      .root_source_file = b.path("src/main.zig"),
+      .root_source_file = b.path("src/cli/main.zig"),
       .target = opt.target,
       .optimize = opt.optimize,
       .single_threaded = true,
       .strip = opt.strip,
+      .imports = &.{
+        .{ .name = "core", .module = opt.core },
+      },
     }),
   });
 
@@ -59,10 +67,13 @@ fn buildWasm(b: *std.Build, opt: BuildOptions) void {
   const wasm_main = b.addExecutable(.{
     .name = "main",
     .root_module = b.createModule(.{
-      .root_source_file = b.path("src/wasm-main.zig"),
+      .root_source_file = b.path("src/wasm/main.zig"),
       .target = opt.wasm_target,
       .optimize = opt.optimize,
       .strip = opt.strip,
+      .imports = &.{
+        .{ .name = "core", .module = opt.core },
+      },
     }),
   });
 
@@ -78,10 +89,13 @@ fn buildWasmWorker(b: *std.Build, opt: BuildOptions) void {
   const wasm_worker = b.addExecutable(.{
     .name = "worker",
     .root_module = b.createModule(.{
-      .root_source_file = b.path("src/wasm-worker.zig"),
+      .root_source_file = b.path("src/wasm/worker.zig"),
       .target = opt.wasm_target,
       .optimize = opt.optimize,
       .strip = opt.strip,
+      .imports = &.{
+        .{ .name = "core", .module = opt.core },
+      },
     }),
   });
 

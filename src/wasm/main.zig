@@ -1,6 +1,8 @@
-const Board = @import("Board.zig");
-const Pcg32 = @import("Pcg32.zig");
-const Solution = @import("solver.zig").Solution;
+const core = @import("core");
+
+const Board = core.Board;
+const Pcg32 = core.Pcg32;
+const Solution = core.Solution;
 
 var solution: Solution = undefined;
 

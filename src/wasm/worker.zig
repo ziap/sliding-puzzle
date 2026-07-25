@@ -1,9 +1,10 @@
-const Board = @import("Board.zig");
-const Heuristic = @import("pattern-database.zig").PatternDatabase654;
+const core = @import("core");
 
-const solver = @import("solver.zig");
-const Solver = solver.HybridSolver;
-const Solution = solver.Solution;
+const Board = core.Board;
+const Solver = core.HybridSolver;
+const Solution = core.Solution;
+
+const Heuristic = core.PatternDatabase;
 
 const Cost = Board.Cost;
 

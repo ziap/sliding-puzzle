@@ -1,14 +1,16 @@
 const std = @import("std");
 
+const core = @import("core");
+
 const args = @import("args.zig");
 const Context = @import("Context.zig");
 const StringMap = @import("string-map.zig").StringMap;
 
-const Board = @import("Board.zig");
-const Pcg32 = @import("Pcg32.zig");
-const Solver = @import("solver.zig").HybridSolver;
+const Board = core.Board;
+const Pcg32 = core.Pcg32;
+const Solver = core.HybridSolver;
 
-const Heuristic = @import("pattern-database.zig").Default;
+const Heuristic = core.PatternDatabase;
 
 const Param = enum {
   iterations,

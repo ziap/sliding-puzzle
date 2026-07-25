@@ -1,10 +1,12 @@
 const std = @import("std");
 
+const core = @import("core");
+
 const args = @import("args.zig");
 const Context = @import("Context.zig");
 const StringMap = @import("string-map.zig").StringMap;
 
-const Heuristic = @import("pattern-database.zig").Default;
+const Heuristic = core.PatternDatabase;
 
 const Param = enum {
   out,
