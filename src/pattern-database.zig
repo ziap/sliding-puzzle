@@ -161,10 +161,10 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
     };
 
     pub const Database = [TOTAL_SIZE]Cost;
-    database: Database align(@alignOf(u64)),
+    database: *Database,
 
-    pub fn generate(self: *@This(), buffer: *ScratchBuffer) void {
-      var view: []Cost = &self.database;
+    pub fn generate(self: @This(), buffer: *ScratchBuffer) void {
+      var view: []Cost = self.database;
 
       inline for (PatternTypes) |PatternType| {
         PatternType.search(view, buffer);
@@ -172,8 +172,8 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       }
     }
 
-    pub fn evaluate(self: *const @This(), board: Board) Cost {
-      var view: []const Cost = self.database[0..];
+    pub fn evaluate(self: @This(), board: Board) Cost {
+      var view: []const Cost = self.database;
       var result: Cost = 0;
       inline for (PatternTypes) |PatternType| { 
         result += view[PatternType.index(board)];
@@ -223,6 +223,16 @@ pub const PatternDatabase654 = PDBHeuristic(&.{
   &.{1, 2, 3, 4, 6, 7},
   &.{8, 11, 12, 14, 15},
   &.{5, 9, 10, 13},
+});
+
+// # # # #  _ _ _ _
+// # # # #  _ _ _ _
+// _ _ _ _  # # # #
+// _ _ _ _  # # # _
+
+pub const PatternDatabase87 = PDBHeuristic(&.{
+  &.{1, 2, 3, 4, 5, 6, 7, 8},
+  &.{9, 10, 11, 12, 13, 14, 15},
 });
 
 // TODO: Use "b.addOptions" to dynamically select pattern database

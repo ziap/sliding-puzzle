@@ -14,10 +14,12 @@ const Heuristic = @import("pattern-database.zig").Default;
 // - number of games
 // - path to pattern database
 // - ...
-pub fn main() !void {
-  var buffer = std.io.bufferedWriter(std.io.getStdOut().writer());
-  defer buffer.flush() catch {};
-  var writer = buffer.writer();
+pub fn main(init: std.process.Init) !void {
+  const allocator = init.arena.allocator();
+
+  var buffer: [4096]u8 = undefined;
+  var stdout: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
+  const writer = &stdout.interface;
 
   const solver = blk: {
     const S = struct {
@@ -29,33 +31,35 @@ pub fn main() !void {
   
   var rng: Pcg32 = .withSeed(1337);
 
-  const heuristic: *const Heuristic = blk: {
-    const S = struct {
-      var heuristic: Heuristic = undefined;
-    };
+  const heuristic: Heuristic = blk: {
+    const database = try allocator.create(Heuristic.Database);
 
     const FILE_PATH = "patterns.bin";
-    const pattern_file = std.fs.cwd().openFile(FILE_PATH, .{}) catch |err| {
+    const pattern_file = std.Io.Dir.cwd().openFile(init.io, FILE_PATH, .{}) catch |err| {
       std.debug.print("Error: Failed to open `{s}`: {}\n", .{ FILE_PATH, err });
       return;
     };
-    defer pattern_file.close();
+    defer pattern_file.close(init.io);
 
-    const read = pattern_file.readAll(&S.heuristic.database) catch |err| {
-      std.debug.print("Error: Failed to read `{s}`: {}\n", .{ FILE_PATH, err });
-      return;
+    var pattern_buffer: [4096]u8 = undefined;
+    var pattern_reader: std.Io.File.Reader = .init(pattern_file, init.io, &pattern_buffer);
+    const reader = &pattern_reader.interface;
+
+    reader.readSliceAll(database) catch |err| switch (err) {
+      error.EndOfStream => {
+        std.debug.print("Error: `{s}` is smaller than the expected {} bytes\n", .{
+          FILE_PATH,
+          Heuristic.TOTAL_SIZE * @sizeOf(Board.Cost),
+        });
+        return;
+      },
+      else => {
+        std.debug.print("Error: Failed to read `{s}`: {}\n", .{ FILE_PATH, err });
+        return;
+      },
     };
 
-    if (read != Heuristic.TOTAL_SIZE) {
-      std.debug.print("Error: `{s}` is {} bytes, expected {}\n", .{
-        FILE_PATH,
-        read,
-        Heuristic.TOTAL_SIZE
-      });
-      return;
-    }
-
-    break :blk &S.heuristic;
+    break :blk .{ .database = database };
   };
 
   var max_time: f64 = 0;
@@ -65,12 +69,13 @@ pub fn main() !void {
 
   for (0..TOTAL_GAMES) |_| {
     const board: Board = .randomUniform(&rng);
-    board.display(&writer) catch return;
-    buffer.flush() catch return;
+    board.display(writer) catch return;
+    writer.flush() catch return;
 
-    var timer = try std.time.Timer.start();
+    const start_time = std.Io.Timestamp.now(init.io, .awake);
     const solution = solver.solve(board, heuristic);
-    const elapsed = @as(f64, @floatFromInt(timer.read())) / std.time.ns_per_ms;
+    const duration = start_time.untilNow(init.io, .awake);
+    const elapsed = @as(f64, @floatFromInt(duration.toNanoseconds())) / std.time.ns_per_ms;
 
     max_time = @max(max_time, elapsed);
     total_time += elapsed;
@@ -79,9 +84,10 @@ pub fn main() !void {
       solution.len,
       elapsed
     }) catch return;
-    buffer.flush() catch return;
+    writer.flush() catch return;
   }
 
   writer.print("Longest time: {d}ms\n", .{ max_time }) catch return;
   writer.print("Average time: {d}ms\n", .{ total_time / TOTAL_GAMES }) catch return;
+  writer.flush() catch return;
 }

@@ -58,7 +58,7 @@ export fn processSolution() void {
   var current = constructBoard();
   for (solution.view(), &S.steps) |board, *step| {
     const moves = current.getMoves(.invalid, true);
-    inline for (moves.buf, 0..) |move, dir| {
+    inline for (&moves.buf, 0..) |move, dir| {
       if (move.data == board.data) {
         step.* = dir;
         break;

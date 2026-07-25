@@ -36,11 +36,13 @@ const BuildOptions = struct {
 fn buildCli(b: *std.Build, opt: BuildOptions) void {
   const cli = b.addExecutable(.{
     .name = "main",
-    .root_source_file = b.path("src/main.zig"),
-    .target = opt.target,
-    .optimize = opt.optimize,
-    .single_threaded = true,
-    .strip = opt.strip,
+    .root_module = b.createModule(.{
+      .root_source_file = b.path("src/main.zig"),
+      .target = opt.target,
+      .optimize = opt.optimize,
+      .single_threaded = true,
+      .strip = opt.strip,
+    }),
   });
 
   b.installArtifact(cli);
@@ -56,11 +58,13 @@ fn buildCli(b: *std.Build, opt: BuildOptions) void {
 fn generatePattern(b: *std.Build, opt: BuildOptions) void {
   const generator = b.addExecutable(.{
     .name = "pdb-gen",
-    .root_source_file = b.path("src/pdb-gen.zig"),
-    .target = opt.target,
-    .optimize = opt.optimize,
-    .single_threaded = true,
-    .strip = opt.strip,
+    .root_module = b.createModule(.{
+      .root_source_file = b.path("src/pdb-gen.zig"),
+      .target = opt.target,
+      .optimize = opt.optimize,
+      .single_threaded = true,
+      .strip = opt.strip,
+    }),
   });
 
   const generate_cmd = b.addRunArtifact(generator);
@@ -71,10 +75,12 @@ fn generatePattern(b: *std.Build, opt: BuildOptions) void {
 fn buildWasm(b: *std.Build, opt: BuildOptions) void {
   const wasm_main = b.addExecutable(.{
     .name = "main",
-    .root_source_file = b.path("src/wasm-main.zig"),
-    .target = opt.wasm_target,
-    .optimize = opt.optimize,
-    .strip = opt.strip,
+    .root_module = b.createModule(.{
+      .root_source_file = b.path("src/wasm-main.zig"),
+      .target = opt.wasm_target,
+      .optimize = opt.optimize,
+      .strip = opt.strip,
+    }),
   });
 
   wasm_main.rdynamic = true;
@@ -88,10 +94,12 @@ fn buildWasm(b: *std.Build, opt: BuildOptions) void {
 fn buildWasmWorker(b: *std.Build, opt: BuildOptions) void {
   const wasm_worker = b.addExecutable(.{
     .name = "worker",
-    .root_source_file = b.path("src/wasm-worker.zig"),
-    .target = opt.wasm_target,
-    .optimize = opt.optimize,
-    .strip = opt.strip,
+    .root_module = b.createModule(.{
+      .root_source_file = b.path("src/wasm-worker.zig"),
+      .target = opt.wasm_target,
+      .optimize = opt.optimize,
+      .strip = opt.strip,
+    }),
   });
 
   wasm_worker.rdynamic = true;

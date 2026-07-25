@@ -1,10 +1,5 @@
 pub fn Uint(BITS: comptime_int) type {
-  return @Type(.{
-    .int = .{
-      .signedness = .unsigned,
-      .bits = BITS,
-    }
-  });
+  return @Int(.unsigned, BITS);
 }
 
 pub fn UintFit(MAX: comptime_int) type {

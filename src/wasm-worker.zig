@@ -1,5 +1,5 @@
 const Board = @import("Board.zig");
-const Heuristic = @import("pattern-database.zig").Default;
+const Heuristic = @import("pattern-database.zig").PatternDatabase654;
 
 const solver = @import("solver.zig");
 const Solver = solver.HybridSolver;
@@ -10,19 +10,19 @@ const Cost = Board.Cost;
 const ctx = blk: {
   const S = struct {
     var solver: Solver = undefined;
-    var heuristic: Heuristic = undefined;
+    var database: Heuristic.Database = undefined;
   };
 
   break :blk .{
     .solver = &S.solver,
-    .heuristic = &S.heuristic
+    .database = &S.database,
   };
 };
 
 extern fn doneSearch(solution: *const Solution, size: u32) void;
 
 export fn databasePtr() *Heuristic.Database {
-  return &ctx.heuristic.database;
+  return ctx.database;
 }
 
 export fn databaseSize() u32 {
@@ -30,6 +30,7 @@ export fn databaseSize() u32 {
 }
 
 export fn solve(data: u64) void {
-  const solution = ctx.solver.solve(.{ .data = data }, ctx.heuristic);
+  const heuristic: Heuristic = .{ .database = ctx.database };
+  const solution = ctx.solver.solve(.{ .data = data }, heuristic);
   doneSearch(solution, @sizeOf(Solution));
 }
