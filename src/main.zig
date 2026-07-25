@@ -34,24 +34,24 @@ pub fn main() !void {
       var heuristic: Heuristic = undefined;
     };
 
-    const FILE_PATH = "patterns.gz";
-    const compressed_file = std.fs.cwd().openFile(FILE_PATH, .{}) catch |err| {
+    const FILE_PATH = "patterns.bin";
+    const pattern_file = std.fs.cwd().openFile(FILE_PATH, .{}) catch |err| {
       std.debug.print("Error: Failed to open `{s}`: {}\n", .{ FILE_PATH, err });
       return;
     };
-    defer compressed_file.close();
-    const compressed_reader = compressed_file.reader();
+    defer pattern_file.close();
 
-    var decompress_stream = std.io.fixedBufferStream(&S.heuristic.database);
-    var decompress_writer = decompress_stream.writer();
-
-    std.compress.flate.decompress(compressed_reader, &decompress_writer) catch |err| {
-      std.debug.print("Error: Failed to decompress `{s}`: {}\n", .{ FILE_PATH, err });
+    const read = pattern_file.readAll(&S.heuristic.database) catch |err| {
+      std.debug.print("Error: Failed to read `{s}`: {}\n", .{ FILE_PATH, err });
       return;
     };
 
-    if (!S.heuristic.checkIntegrity()) {
-      std.debug.print("Error: Pattern database corrupted\n", .{});
+    if (read != Heuristic.TOTAL_SIZE) {
+      std.debug.print("Error: `{s}` is {} bytes, expected {}\n", .{
+        FILE_PATH,
+        read,
+        Heuristic.TOTAL_SIZE
+      });
       return;
     }
 

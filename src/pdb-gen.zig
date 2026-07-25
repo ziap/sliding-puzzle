@@ -18,22 +18,9 @@ pub fn main() !void {
 
   {
     std.debug.print("Exporting the pattern database\n", .{});
-    const compressed_file = try std.fs.cwd().createFile("patterns.gz", .{});
-    defer compressed_file.close();
-    const compressed_writer = compressed_file.writer();
+    const out_file = try std.fs.cwd().createFile("patterns.bin", .{});
+    defer out_file.close();
 
-    var data_stream = std.io.fixedBufferStream(&S.heuristic.database);
-    var data_reader = data_stream.reader();
-
-    try std.compress.flate.compress(&data_reader, compressed_writer, .{
-      .level = .best
-    });
-  }
-
-  {
-    std.debug.print("Exporting the checksum\n", .{});
-    const checksum_file = try std.fs.cwd().createFile("src/patterns.chk", .{});
-    defer checksum_file.close();
-    try checksum_file.writeAll(&S.heuristic.checksum());
+    try out_file.writeAll(&S.heuristic.database);
   }
 }

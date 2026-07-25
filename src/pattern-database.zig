@@ -172,63 +172,6 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       }
     }
 
-    const Checksum = [@sizeOf(u64)]u8;
-
-    // Generate a checksum for integrity checking using a non-cryptographic
-    // hash function inspird by: <https://github.com/orlp/foldhash>
-    pub fn checksum(self: *const @This()) Checksum {
-      const is_le = comptime blk: {
-        const native_endian = @import("builtin").cpu.arch.endian();
-        break :blk native_endian == .little;
-      };
-
-      const S = struct {
-        // Multiply-and-mix operation commonly used in wyhash, xxhash, etc.
-        fn multiplyMix(x: u64, y: u64) u64 {
-          const m = @as(u128, x) *% @as(u128, y);
-
-          const hi: u64 = @intCast(m >> 64);
-          const lo: u64 = @truncate(m);
-
-          return hi ^ lo;
-        }
-      };
-
-      // Split the memory into chunks of u64 pairs
-      const Chunks = *const [TOTAL_SIZE / (@sizeOf(u64) * 2)][2]u64;
-      const chunks: Chunks = @ptrCast(&self.database);
-
-      // A good half-width 128-bit MCG multiplier used in PCG64-DXSM
-      const m = 0xda942042e4dd58b5;
-
-      var h: u64 = S.multiplyMix(TOTAL_SIZE, m);
-      for (chunks) |chunk| {
-        // Use little endian during computation for faster fetch on x86_64
-        const a = if (comptime is_le) chunk[0] else @byteSwap(chunk[0]);
-        const b = if (comptime is_le) chunk[1] else @byteSwap(chunk[1]);
-
-        // Xor with a random constant to avoid trivial zero collapse
-        h = S.multiplyMix(h ^ a, 0x9e3779b97f4a7c15 ^ b);
-      }
-
-      // Finalization step to avalanche the bits
-      h = S.multiplyMix(h, m);
-
-      // Export the checksum as bytes in big endian for storage
-      const result = if (comptime is_le) @byteSwap(h) else h;
-      return @bitCast(result);
-    }
-
-    pub fn checkIntegrity(self: *const @This()) bool {
-      // Load the correct checksum and converts it to u64 for comparison
-      const correct: u64 = comptime blk: {
-        const correct_file: *const Checksum = @embedFile("patterns.chk");
-        break :blk @bitCast(correct_file.*);
-      };
-
-      return @as(u64, @bitCast(self.checksum())) == correct;
-    }
-
     pub fn evaluate(self: *const @This(), board: Board) Cost {
       var view: []const Cost = self.database[0..];
       var result: Cost = 0;

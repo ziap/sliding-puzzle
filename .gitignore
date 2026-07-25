@@ -1,2 +1,4 @@
 zig-out/bin/
 .zig-cache
+
+patterns.bin
