@@ -23,7 +23,7 @@ faster subsequent accesses.
 The easiest way to use the program is to go to the [deployed
 website](//ziap.github.io/sliding-puzzle).
 
-This project uses [Zig 0.14](//ziglang.org/download/#release-0.14.0). Only the
+This project uses [Zig 0.16](//ziglang.org/download/#release-0.16.0). Only the
 Zig compiler is required to build the project. Some additional tools that are
 useful for development:
 
@@ -34,26 +34,38 @@ useful for development:
 
 ### Building
 
-Generate the pattern database:
-
-```sh
-zig build --release=fast pdb-gen
-```
-
-Build everything else:
-
 ```sh
 zig build --release=fast
 ```
 
 ### Running
 
-The following runs the algorithm on 400 random instances of the puzzle and
-calculate the maximum and average time:
+The CLI has two subcommands. The first writes the pattern database to disk:
 
 ```sh
-./zig-out/bin/main
+sliding-puzzle generate [-o|--out <path>]
 ```
+
+The second runs the algorithm on random instances of the puzzle and calculates
+the maximum and average time:
+
+```sh
+sliding-puzzle evaluate [-i|--iter <u32>] [-s|--seed <u64>] [-p|--pdb <path>]
+```
+
+| Option         | Default        | Meaning                                               |
+| -------------- | -------------- | ----------------------------------------------------- |
+| `-o`, `--out`  | `patterns.bin` | Where to write the pattern database                   |
+| `-i`, `--iter` | `1000`         | Number of puzzles to solve                            |
+| `-s`, `--seed` | random         | Seed for the PRNG, decimal or `0x`/`0o`/`0b` prefixed |
+| `-p`, `--pdb`  | `patterns.bin` | Where to read the pattern database from               |
+
+If there's no pattern database at `--pdb` yet, `evaluate` generates one there
+before solving, so a fresh checkout doesn't need `generate` first.
+
+The seed is printed alongside the results, so passing it back to `--seed`
+reproduces a run exactly. Pass `--help` to either subcommand for the full list
+of options.
 
 To run the web front-end, start any web server at the project's root:
 

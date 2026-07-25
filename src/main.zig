@@ -1,93 +1,110 @@
 const std = @import("std");
 
-const Pcg32 = @import("Pcg32.zig");
-const Board = @import("Board.zig");
+const Context = @import("Context.zig");
+const StringMap = @import("string-map.zig").StringMap;
 
-const Solver = @import("solver.zig").HybridSolver;
+const generate = @import("generate.zig");
+const evaluate = @import("evaluate.zig");
 
-const Cost = Board.Cost;
+const Command = enum {
+  generate,
+  evaluate,
+  help,
+};
 
-const Heuristic = @import("pattern-database.zig").Default;
+const commandMap = StringMap(Command).init(.{
+  .generate = .generate,
+  .evaluate = .evaluate,
 
-// TODO: Parse the command-line arguments
-// - seed for RNG
-// - number of games
-// - path to pattern database
-// - ...
+  .@"--help" = .help,
+  .@"-h" = .help,
+});
+
+const USAGE =
+  \\Usage: sliding-puzzle <command> [options]
+  \\
+  \\Commands:
+  \\  generate    Generate the pattern database
+  \\  evaluate    Solve random puzzles and report the timings
+  \\
+  \\Options:
+  \\  -h, --help  Display this help message
+  \\
+  \\Run `sliding-puzzle <command> --help` for the options of a command.
+  \\
+;
+
 pub fn main(init: std.process.Init) !void {
-  const allocator = init.arena.allocator();
-
-  var buffer: [4096]u8 = undefined;
-  var stdout: std.Io.File.Writer = .init(.stdout(), init.io, &buffer);
+  var out_buffer: [4096]u8 = undefined;
+  var stdout: std.Io.File.Writer = .init(.stdout(), init.io, &out_buffer);
   const writer = &stdout.interface;
 
-  const solver = blk: {
-    const S = struct {
-      var solver: Solver = undefined;
-    };
+  var err_buffer: [4096]u8 = undefined;
+  var stderr: std.Io.File.Writer = .init(.stderr(), init.io, &err_buffer);
+  const err_writer = &stderr.interface;
 
-    break :blk &S.solver;
-  };
-  
-  var rng: Pcg32 = .withSeed(1337);
+  // The subcommand region is reset between generation and evaluation, which the
+  // parsed arguments have to outlive, so they get a region of their own
+  //
+  // TODO: Replace both with one arena that supports checkpoints, so the
+  // subcommand's working set can be rewound to a mark taken after parsing
+  // instead of needing a second allocator to survive the reset
+  var arg_arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
+  defer arg_arena.deinit();
 
-  const heuristic: Heuristic = blk: {
-    const database = try allocator.create(Heuristic.Database);
+  var command_arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
+  defer command_arena.deinit();
 
-    const FILE_PATH = "patterns.bin";
-    const pattern_file = std.Io.Dir.cwd().openFile(init.io, FILE_PATH, .{}) catch |err| {
-      std.debug.print("Error: Failed to open `{s}`: {}\n", .{ FILE_PATH, err });
-      return;
-    };
-    defer pattern_file.close(init.io);
-
-    var pattern_buffer: [4096]u8 = undefined;
-    var pattern_reader: std.Io.File.Reader = .init(pattern_file, init.io, &pattern_buffer);
-    const reader = &pattern_reader.interface;
-
-    reader.readSliceAll(database) catch |err| switch (err) {
-      error.EndOfStream => {
-        std.debug.print("Error: `{s}` is smaller than the expected {} bytes\n", .{
-          FILE_PATH,
-          Heuristic.TOTAL_SIZE * @sizeOf(Board.Cost),
-        });
-        return;
-      },
-      else => {
-        std.debug.print("Error: Failed to read `{s}`: {}\n", .{ FILE_PATH, err });
-        return;
-      },
-    };
-
-    break :blk .{ .database = database };
+  const ctx: Context = .{
+    .io = init.io,
+    .arena = command_arena.allocator(),
+    .writer = writer,
   };
 
-  var max_time: f64 = 0;
-  var total_time: f64 = 0;
+  var iter = try init.minimal.args.iterateAllocator(arg_arena.allocator());
+  defer iter.deinit();
 
-  const TOTAL_GAMES = 1000;
+  if (!iter.skip()) return error.NoProgramName;
 
-  for (0..TOTAL_GAMES) |_| {
-    const board: Board = .randomUniform(&rng);
-    board.display(writer) catch return;
-    writer.flush() catch return;
+  const name = iter.next() orelse {
+    try err_writer.writeAll(USAGE);
+    try err_writer.flush();
+    return;
+  };
 
-    const start_time = std.Io.Timestamp.now(init.io, .awake);
-    const solution = solver.solve(board, heuristic);
-    const duration = start_time.untilNow(init.io, .awake);
-    const elapsed = @as(f64, @floatFromInt(duration.toNanoseconds())) / std.time.ns_per_ms;
+  const command = commandMap.get(name) orelse {
+    try err_writer.print("Error: Unknown command '{s}'\n\n", .{ name });
+    try err_writer.writeAll(USAGE);
+    try err_writer.flush();
+    return;
+  };
 
-    max_time = @max(max_time, elapsed);
-    total_time += elapsed;
+  switch (command) {
+    .help => {
+      try writer.writeAll(USAGE);
+      try writer.flush();
+    },
+    .generate => {
+      const args = generate.Args.parse(&iter, err_writer) catch return;
+      generate.run(ctx, args) catch return;
+    },
+    .evaluate => {
+      const args = evaluate.Args.parse(ctx.io, &iter, err_writer) catch return;
+      if (args.iterations == 0) return;
 
-    writer.print("Solution length: {} - Time elapsed: {d}ms\n", .{
-      solution.len,
-      elapsed
-    }) catch return;
-    writer.flush() catch return;
+      // Generate the database in place if it's missing, then drop the
+      // generation buffers so evaluation starts from a clean region
+      const cwd = std.Io.Dir.cwd();
+      cwd.access(ctx.io, args.pdb, .{}) catch |err| switch (err) {
+        error.FileNotFound => {
+          generate.run(ctx, .{ .out = args.pdb }) catch return;
+          _ = command_arena.reset(.free_all);
+        },
+        // Any other failure is reported when `evaluate` opens the file
+        else => {},
+      };
+
+      evaluate.run(ctx, args) catch return;
+    },
   }
-
-  writer.print("Longest time: {d}ms\n", .{ max_time }) catch return;
-  writer.print("Average time: {d}ms\n", .{ total_time / TOTAL_GAMES }) catch return;
-  writer.flush() catch return;
 }
