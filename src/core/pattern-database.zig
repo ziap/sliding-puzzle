@@ -74,6 +74,59 @@ fn Pattern(pattern: []const u4) type {
       return idx;
     }
 
+    // Moving a non-pattern tile costs nothing, so every board where the blank
+    // is anywhere in its region of free cells has the same cost. Assign the
+    // cost to the whole region at once and queue all of them for expansion.
+    fn fillRegion(database: []Cost, list: anytype, board: Board, depth: Cost) void {
+      // Tiles the blank can swap with without changing the cost: the blank
+      // itself and every non-pattern tile
+      const FREE_TILES = ~BITSET | 1;
+
+      // Masks for the first and last column of a 4x4 cell bitset
+      const MASK_FIRST = ~@as(u16, 0x1111);
+      const MASK_LAST  = ~@as(u16, 0x8888);
+
+      var free: u16 = 0;
+      var b = board.data;
+      inline for (0..16) |cell| {
+        if (FREE_TILES & (@as(u16, 1) << @intCast(b & 0xf)) != 0) {
+          free |= 1 << cell;
+        }
+        b >>= 4;
+      }
+
+      // Flood fill from the blank through the free cells
+      const empty = board.emptyPos();
+      var region = @as(u16, 1) << @intCast(empty / 4);
+      inline for (0..16 - pattern.len) |_| {
+        const grown = free & (
+            region
+          | (region << 4)
+          | (region >> 4)
+          | ((region << 1) & MASK_FIRST)
+          | ((region >> 1) & MASK_LAST)
+        );
+        region = grown;
+      }
+
+      var cells = region;
+      while (cells != 0) : (cells &= cells - 1) {
+        // Swap the blank with the tile at `pos`, a no-op for the blank itself
+        const pos = @as(u6, @ctz(cells)) * 4;
+        const tile = (board.data >> pos) & 0xf;
+        const moved: Board = .{
+          .data = board.data ^ (tile << empty) ^ (tile << pos),
+        };
+
+        // Regions are always assigned as a whole
+        const idx = index(moved);
+        if (database[idx] != MAX_COST) unreachable;
+
+        database[idx] = depth;
+        list.push(moved);
+      }
+    }
+
     // Performs breadth-first search to fill up the pattern database
     fn search(database: []Cost, buffer: []Board) void {
       @memset(database, MAX_COST);
@@ -86,34 +139,23 @@ fn Pattern(pattern: []const u4) type {
 
       // Add the initial board to the database
       var depth: Cost = 0;
-      frontier.push(.initial);
-      database[index(.initial)] = 0;
+      fillRegion(database, &frontier, .initial, 0);
 
       while (frontier.len > 0) : (depth += 1) {
         while (frontier.pop()) |board| {
-          // The board is reached earlier, don't bother expanding its children
-          if (database[index(board)] < depth) continue;
-
           const moves = board.getMoves(Board.invalid, false);
           for (moves.view()) |next| {
             const empty_pos = next.emptyPos();
             const moved: u4 = @truncate((board.data ^ next.data) >> empty_pos);
+
+            // Non-pattern tile moved
+            if (BITSET & (@as(u16, 1) << moved) == 0) continue;
+
+            // Already reached
             const idx = index(next);
+            if (database[idx] < MAX_COST) continue;
 
-            if (BITSET & (@as(u16, 1) << moved) != 0) {
-              // A pattern tile is moved, insert it to the next frontier list
-              if (database[idx] <= depth + 1) continue;
-
-              database[idx] = depth + 1;
-              next_frontier.push(next);
-            } else {
-              // A non-pattern tile is moved, insert it back into the current
-              // frontier list
-              if (database[idx] <= depth) continue;
-
-              database[idx] = depth;
-              frontier.push(next);
-            }
+            fillRegion(database, &next_frontier, next, depth + 1);
           }
         }
 
