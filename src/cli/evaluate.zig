@@ -8,7 +8,7 @@ const StringMap = @import("string-map.zig").StringMap;
 
 const Board = core.Board;
 const Pcg32 = core.Pcg32;
-const Solver = core.HybridSolver;
+const Solver = core.HybridSolver(Heuristic);
 
 const Heuristic = core.PatternDatabase;
 

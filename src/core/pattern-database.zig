@@ -1,7 +1,6 @@
 const Board = @import("Board.zig");
 const common = @import("common.zig");
 
-const Cost = Board.Cost;
 const MAX_COST = Board.MAX_COST;
 
 // A patch of a board that can be used to index into a database
@@ -77,7 +76,12 @@ fn Pattern(pattern: []const u4) type {
     // Moving a non-pattern tile costs nothing, so every board where the blank
     // is anywhere in its region of free cells has the same cost. Assign the
     // cost to the whole region at once and queue all of them for expansion.
-    fn fillRegion(database: []Cost, list: anytype, board: Board, depth: Cost) void {
+    fn fillRegion(
+      database: []Board.Cost,
+      list: anytype,
+      board: Board,
+      depth: Board.Cost,
+    ) void {
       // Tiles the blank can swap with without changing the cost: the blank
       // itself and every non-pattern tile
       const FREE_TILES = ~BITSET | 1;
@@ -128,7 +132,7 @@ fn Pattern(pattern: []const u4) type {
     }
 
     // Performs breadth-first search to fill up the pattern database
-    fn search(database: []Cost, buffer: []Board) void {
+    fn search(database: []Board.Cost, buffer: []Board) void {
       @memset(database, MAX_COST);
 
       var frontier = common.sliceList(Board, buffer[0..SIZE]);
@@ -138,7 +142,7 @@ fn Pattern(pattern: []const u4) type {
       next_frontier.len = 0;
 
       // Add the initial board to the database
-      var depth: Cost = 0;
+      var depth: Board.Cost = 0;
       fillRegion(database, &frontier, .initial, 0);
 
       while (frontier.len > 0) : (depth += 1) {
@@ -202,11 +206,39 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       break :blk [max_size * 2]Board;
     };
 
-    pub const Database = [TOTAL_SIZE]Cost;
+    pub const Database = [TOTAL_SIZE]Board.Cost;
     database: *Database,
 
+    const Heuristic = @This();
+
+    // Incremental cost model used by the search algorithms, the cost of a
+    // board is derived from the cost of its parent
+    pub const Cost = struct {
+      value: Board.Cost,
+
+      // Currently evaluates the moved board from scratch
+      pub fn update(
+        self: Cost,
+        heuristic: Heuristic,
+        board: Board,
+        moved: Board,
+      ) Cost {
+        _ = self;
+        _ = board;
+        return .{ .value = heuristic.evaluate(moved) };
+      }
+
+      pub fn get(self: Cost) Board.Cost {
+        return self.value;
+      }
+    };
+
+    pub fn cost(self: Heuristic, board: Board) Cost {
+      return .{ .value = self.evaluate(board) };
+    }
+
     pub fn generate(self: @This(), buffer: *ScratchBuffer) void {
-      var view: []Cost = self.database;
+      var view: []Board.Cost = self.database;
 
       inline for (PatternTypes) |PatternType| {
         PatternType.search(view, buffer);
@@ -214,9 +246,9 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
       }
     }
 
-    pub fn evaluate(self: @This(), board: Board) Cost {
-      var view: []const Cost = self.database;
-      var result: Cost = 0;
+    pub fn evaluate(self: @This(), board: Board) Board.Cost {
+      var view: []const Board.Cost = self.database;
+      var result: Board.Cost = 0;
       inline for (PatternTypes) |PatternType| { 
         result += view[PatternType.index(board)];
         view = view[PatternType.SIZE..];

@@ -1,7 +1,7 @@
 const core = @import("core");
 
 const Board = core.Board;
-const Solver = core.HybridSolver;
+const Solver = core.HybridSolver(Heuristic);
 const Solution = core.Solution;
 
 const Heuristic = core.PatternDatabase;

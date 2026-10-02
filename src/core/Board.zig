@@ -183,45 +183,6 @@ pub fn getMoves(self: Board, last: Board, comptime all: bool) MoveList {
   return moves;
 }
 
-// A commonly used admissible heuristic for solving the puzzle with A*
-pub const ManhattanHeuristic = struct {
-  pub fn evaluate(self: Board) Cost {
-    // Precompute the manhattan distance for every tile on every position
-    const S = struct {
-      const cost_table = blk: {
-        var res: [16][16]Cost = undefined;
-
-        var goal_pos: [15]@Vector(2, i8) = undefined;
-        for (&goal_pos, 0..) |*pos, idx| {
-          pos.*= .{ idx / 4, idx % 4 };
-        }
-
-        for (&res, 0..) |*cost, cost_idx| {
-          // Counting the empty tile will cause overestimation
-          cost[0] = 0;
-
-          const pos: @Vector(2, i8) = .{ cost_idx / 4, cost_idx % 4 };
-          for (cost[1..], 0..) |*tile, tile_idx| {
-            const x, const y = @abs(pos - goal_pos[tile_idx]);
-            tile.* = x + y;
-          }
-        }
-
-        break :blk res;
-      };
-    };
-
-    var result: Cost = 0;
-    var b = self.data;
-    inline for (S.cost_table) |cost| {
-      result += cost[b & 0xf];
-      b >>= 4;
-    }
-
-    return result;
-  }
-};
-
 // Pretty-print the board for debug and demonstration purposes
 pub fn display(self: Board, writer: anytype) !void {
   const digits = comptime blk: {
