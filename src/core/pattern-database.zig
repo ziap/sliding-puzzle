@@ -178,13 +178,46 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
   return struct {
     const PatternTypes = blk: {
       var results: [patterns.len]type = undefined;
+      var seen: u16 = 0;
 
       for (&results, patterns) |*result, pattern| {
         // Add the empty tile to the pattern
         result.* = Pattern(.{0} ++ pattern);
+
+        // Tiles must be disjoint
+        const tiles = result.*.BITSET & ~@as(u16, 1);
+        if (seen & tiles != 0) @compileError("Patterns are not disjoint");
+        seen |= tiles;
       }
 
+      // Every move must change exactly one pattern's cost
+      if (seen != 0xfffe) @compileError("Patterns must cover every tile");
+
       break :blk results;
+    };
+
+    // The pattern each tile belongs to, `patterns.len` for the blank
+    const PATTERN_OF = blk: {
+      var res: [16]u8 = .{patterns.len} ** 16;
+
+      for (patterns, 0..) |pattern, idx| {
+        for (pattern) |tile| res[tile] = idx;
+      }
+
+      break :blk res;
+    };
+
+    // Where each pattern's table starts in the database
+    const OFFSETS = blk: {
+      var res: [patterns.len]comptime_int = undefined;
+      var offset = 0;
+
+      for (&res, PatternTypes) |*result, PatternType| {
+        result.* = offset;
+        offset += PatternType.SIZE;
+      }
+
+      break :blk res;
     };
 
     pub const TOTAL_SIZE = blk: {
@@ -214,27 +247,48 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
     // Incremental cost model used by the search algorithms, the cost of a
     // board is derived from the cost of its parent
     pub const Cost = struct {
-      value: Board.Cost,
+      values: [patterns.len]Board.Cost,
 
-      // Currently evaluates the moved board from scratch
+      // Only the pattern containing the moved tile changes, moving any other
+      // tile is free for that pattern
       pub fn update(
         self: Cost,
         heuristic: Heuristic,
         board: Board,
         moved: Board,
       ) Cost {
-        _ = self;
-        _ = board;
-        return .{ .value = heuristic.evaluate(moved) };
+        // The moved tile is now where the blank was in `moved`
+        const tile: u4 = @truncate((board.data ^ moved.data) >> moved.emptyPos());
+
+        var next = self;
+        switch (PATTERN_OF[tile]) {
+          inline 0...patterns.len - 1 => |idx| {
+            next.values[idx] = heuristic.lookup(idx, moved);
+          },
+          else => unreachable,
+        }
+
+        return next;
       }
 
       pub fn get(self: Cost) Board.Cost {
-        return self.value;
+        var sum: Board.Cost = 0;
+        inline for (self.values) |value| sum += value;
+        return sum;
       }
     };
 
     pub fn cost(self: Heuristic, board: Board) Cost {
-      return .{ .value = self.evaluate(board) };
+      var res: Cost = undefined;
+      inline for (&res.values, 0..) |*value, idx| {
+        value.* = self.lookup(idx, board);
+      }
+
+      return res;
+    }
+
+    fn lookup(self: Heuristic, comptime idx: usize, board: Board) Board.Cost {
+      return self.database[OFFSETS[idx] + PatternTypes[idx].index(board)];
     }
 
     pub fn generate(self: @This(), buffer: *ScratchBuffer) void {
@@ -247,11 +301,9 @@ pub fn PDBHeuristic(patterns: []const []const u4) type {
     }
 
     pub fn evaluate(self: @This(), board: Board) Board.Cost {
-      var view: []const Board.Cost = self.database;
       var result: Board.Cost = 0;
-      inline for (PatternTypes) |PatternType| { 
-        result += view[PatternType.index(board)];
-        view = view[PatternType.SIZE..];
+      inline for (0..patterns.len) |idx| {
+        result += self.lookup(idx, board);
       }
       return result;
     }
